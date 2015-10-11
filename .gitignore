@@ -7,6 +7,9 @@
 /*.iml
 /.idea
 
+build/
+.gradle/
+
 /bin
 /dependency-reduced-pom.xml
 *-private.sh

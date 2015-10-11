@@ -1,6 +1,6 @@
 package com.sk89q.worldguard.sponge.util;
 
-import com.google.common.base.Optional;
+import java.util.Optional;
 import com.sk89q.worldguard.sponge.WorldGuardPlugin;
 import org.spongepowered.api.block.BlockType;
 import org.spongepowered.api.item.ItemBlock;

@@ -19,7 +19,7 @@
 
 package com.sk89q.worldguard.sponge.commands;
 
-import com.google.common.base.Optional;
+import java.util.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.io.Files;

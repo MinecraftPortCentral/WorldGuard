@@ -19,7 +19,7 @@
 
 package com.sk89q.worldguard.sponge.commands;
 
-import com.google.common.base.Optional;
+import java.util.Optional;
 import com.sk89q.minecraft.util.commands.Command;
 import com.sk89q.minecraft.util.commands.CommandContext;
 import com.sk89q.minecraft.util.commands.CommandException;

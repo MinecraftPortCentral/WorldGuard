@@ -20,7 +20,7 @@
 package com.sk89q.worldguard.sponge;
 
 import com.flowpowered.math.vector.Vector3d;
-import com.google.common.base.Optional;
+import java.util.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Futures;

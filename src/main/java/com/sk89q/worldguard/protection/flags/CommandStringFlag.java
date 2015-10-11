@@ -19,9 +19,8 @@
 
 package com.sk89q.worldguard.protection.flags;
 
-import org.bukkit.command.CommandSender;
-
 import com.sk89q.worldguard.sponge.WorldGuardPlugin;
+import org.spongepowered.api.util.command.CommandSource;
 
 /**
  * Stores a command/
@@ -37,7 +36,7 @@ public class CommandStringFlag extends Flag<String> {
     }
 
     @Override
-    public String parseInput(WorldGuardPlugin plugin, CommandSender sender, String input) throws InvalidFlagFormat {
+    public String parseInput(WorldGuardPlugin plugin, CommandSource sender, String input) throws InvalidFlagFormat {
         input = input.trim();
         if (!input.startsWith("/")) {
             input = "/" + input;

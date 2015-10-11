@@ -20,7 +20,7 @@
 package com.sk89q.worldguard.protection.flags;
 
 import com.sk89q.worldguard.sponge.WorldGuardPlugin;
-import org.bukkit.command.CommandSender;
+import org.spongepowered.api.util.command.CommandSource;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -55,7 +55,7 @@ public class SetFlag<T> extends Flag<Set<T>> {
     }
 
     @Override
-    public Set<T> parseInput(WorldGuardPlugin plugin, CommandSender sender, String input) throws InvalidFlagFormat {
+    public Set<T> parseInput(WorldGuardPlugin plugin, CommandSource sender, String input) throws InvalidFlagFormat {
         Set<T> items = new HashSet<T>();
 
         for (String str : input.split(",")) {

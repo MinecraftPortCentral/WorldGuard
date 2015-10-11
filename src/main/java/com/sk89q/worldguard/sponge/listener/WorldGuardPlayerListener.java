@@ -19,7 +19,7 @@
 
 package com.sk89q.worldguard.sponge.listener;
 
-import com.google.common.base.Optional;
+import java.util.Optional;
 import com.sk89q.worldguard.LocalPlayer;
 import com.sk89q.worldguard.protection.ApplicableRegionSet;
 import com.sk89q.worldguard.protection.flags.DefaultFlag;
@@ -45,7 +45,7 @@ import org.spongepowered.api.event.command.MessageSinkEvent;
 import org.spongepowered.api.event.command.SendCommandEvent;
 import org.spongepowered.api.event.entity.DisplaceEntityEvent;
 import org.spongepowered.api.event.entity.InteractEntityEvent;
-import org.spongepowered.api.event.entity.living.human.ChangeHumanGameModeEvent;
+import org.spongepowered.api.event.entity.living.human.ChangeGameModeEvent;
 import org.spongepowered.api.event.entity.living.player.RespawnPlayerEvent;
 import org.spongepowered.api.event.network.ClientConnectionEvent;
 import org.spongepowered.api.item.inventory.ItemStack;
@@ -81,7 +81,7 @@ public class WorldGuardPlayerListener extends AbstractListener {
     }
 
     @Listener
-    public void onPlayerGameModeChange(ChangeHumanGameModeEvent.TargetPlayer event) {
+    public void onPlayerGameModeChange(ChangeGameModeEvent.TargetPlayer event) {
         Player player = event.getTargetEntity();
         WorldConfiguration wcfg = getWorldConfig(player);
         GameModeFlag handler = getPlugin().getSessionManager().get(player).getHandler(GameModeFlag.class);
@@ -131,8 +131,11 @@ public class WorldGuardPlayerListener extends AbstractListener {
     }
 
     @Listener
-    public void onPlayerChat(MessageSinkEvent.SourcePlayer event) {
-        Player player = event.getSource();
+    public void onPlayerChat(MessageSinkEvent.Chat event) {
+        if (!event.getCause().any(Player.class)) {
+            return;
+        }
+        Player player = event.getCause().first(Player.class).get();
         WorldConfiguration wcfg = getPlugin().getGlobalStateManager().get(player.getWorld());
         if (wcfg.useRegions) {
             if (!getPlugin().getRegionContainer().createQuery().testState(player.getLocation(), player, DefaultFlag.SEND_CHAT)) {

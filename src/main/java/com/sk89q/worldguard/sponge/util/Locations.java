@@ -44,6 +44,6 @@ public final class Locations {
     }
 
     public static <T extends Extent> Transform<T> toTransform(Location<T> loc) {
-        return new Transform<>(loc);
+        return new Transform<T>(loc);
     }
 }

@@ -19,7 +19,7 @@
 
 package com.sk89q.worldguard.sponge.listener;
 
-import com.google.common.base.Optional;
+import java.util.Optional;
 import com.sk89q.worldguard.session.MoveType;
 import com.sk89q.worldguard.session.Session;
 import com.sk89q.worldguard.sponge.WorldGuardPlugin;

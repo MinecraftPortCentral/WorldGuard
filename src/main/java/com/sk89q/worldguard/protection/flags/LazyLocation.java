@@ -20,7 +20,7 @@
 package com.sk89q.worldguard.protection.flags;
 
 import com.flowpowered.math.vector.Vector3d;
-import com.google.common.base.Optional;
+import java.util.Optional;
 import com.sk89q.worldguard.sponge.WorldGuardPlugin;
 import org.spongepowered.api.entity.Transform;
 import org.spongepowered.api.world.Location;

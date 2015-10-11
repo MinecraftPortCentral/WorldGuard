@@ -20,7 +20,7 @@
 package com.sk89q.worldguard.sponge;
 
 import com.flowpowered.math.vector.Vector3d;
-import com.google.common.base.Optional;
+import java.util.Optional;
 import com.sk89q.worldguard.LocalPlayer;
 import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.service.ban.BanService;

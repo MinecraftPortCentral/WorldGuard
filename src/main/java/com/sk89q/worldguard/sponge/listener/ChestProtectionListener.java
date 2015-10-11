@@ -19,7 +19,7 @@
 
 package com.sk89q.worldguard.sponge.listener;
 
-import com.google.common.base.Optional;
+import java.util.Optional;
 import com.sk89q.worldedit.blocks.BlockID;
 import com.sk89q.worldguard.sponge.WorldConfiguration;
 import com.sk89q.worldguard.sponge.WorldGuardPlugin;

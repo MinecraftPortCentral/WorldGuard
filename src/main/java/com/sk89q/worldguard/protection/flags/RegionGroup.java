@@ -20,6 +20,7 @@
 package com.sk89q.worldguard.protection.flags;
 
 import com.sk89q.worldguard.domains.Association;
+import org.spongepowered.api.CatalogType;
 
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -30,7 +31,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 /**
  * A grouping of region membership types.
  */
-public enum RegionGroup {
+public enum RegionGroup implements CatalogType {
 
     MEMBERS(Association.MEMBER, Association.OWNER),
     OWNERS(Association.OWNER),
@@ -56,4 +57,13 @@ public enum RegionGroup {
         return contained.contains(association);
     }
 
+    @Override
+    public String getId() {
+        return name();
+    }
+
+    @Override
+    public String getName() {
+        return name();
+    }
 }

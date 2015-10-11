@@ -19,7 +19,7 @@
 
 package com.sk89q.worldguard.protection.flags;
 
-import com.google.common.base.Optional;
+import java.util.Optional;
 import com.sk89q.worldguard.sponge.WorldGuardPlugin;
 import org.spongepowered.api.CatalogType;
 import org.spongepowered.api.util.command.CommandSource;

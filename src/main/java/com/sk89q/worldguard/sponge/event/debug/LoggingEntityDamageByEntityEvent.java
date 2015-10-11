@@ -19,7 +19,7 @@
 
 package com.sk89q.worldguard.sponge.event.debug;
 
-import com.google.common.base.Optional;
+import java.util.Optional;
 import com.sk89q.worldguard.sponge.WorldGuardPlugin;
 import org.spongepowered.api.Game;
 import org.spongepowered.api.data.key.Keys;

@@ -19,9 +19,8 @@
 
 package com.sk89q.worldguard.protection.flags;
 
-import org.bukkit.command.CommandSender;
-
 import com.sk89q.worldguard.sponge.WorldGuardPlugin;
+import org.spongepowered.api.util.command.CommandSource;
 
 /**
  * A boolean flag.
@@ -37,7 +36,7 @@ public class BooleanFlag extends Flag<Boolean> {
     }
 
     @Override
-    public Boolean parseInput(WorldGuardPlugin plugin, CommandSender sender, String input) throws InvalidFlagFormat {
+    public Boolean parseInput(WorldGuardPlugin plugin, CommandSource sender, String input) throws InvalidFlagFormat {
         input = input.trim();
         
         if (input.equalsIgnoreCase("true") || input.equalsIgnoreCase("yes")

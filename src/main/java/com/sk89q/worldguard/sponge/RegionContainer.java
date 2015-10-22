@@ -119,7 +119,7 @@ public class RegionContainer {
         });
 
         plugin.getGame().getScheduler().createTaskBuilder().name("WorldGuardRegionCache")
-                .interval(CACHE_INVALIDATION_INTERVAL).delay(CACHE_INVALIDATION_INTERVAL)
+                .intervalTicks(CACHE_INVALIDATION_INTERVAL).delayTicks(CACHE_INVALIDATION_INTERVAL)
                 .execute(new Runnable() {
                     @Override
                     public void run() {

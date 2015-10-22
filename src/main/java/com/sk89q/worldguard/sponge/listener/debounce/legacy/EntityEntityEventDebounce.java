@@ -20,9 +20,9 @@
 package com.sk89q.worldguard.sponge.listener.debounce.legacy;
 
 import com.sk89q.worldguard.sponge.listener.debounce.legacy.EntityEntityEventDebounce.Key;
-import org.bukkit.entity.Entity;
-import org.bukkit.event.Cancellable;
-import org.bukkit.event.Event;
+import org.spongepowered.api.entity.Entity;
+import org.spongepowered.api.event.Cancellable;
+import org.spongepowered.api.event.Event;
 
 public class EntityEntityEventDebounce extends AbstractEventDebounce<Key> {
 

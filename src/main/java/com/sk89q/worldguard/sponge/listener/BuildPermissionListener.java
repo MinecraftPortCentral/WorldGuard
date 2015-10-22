@@ -32,7 +32,6 @@ import org.spongepowered.api.block.BlockType;
 import org.spongepowered.api.entity.EntityType;
 import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.event.Listener;
-import org.spongepowered.api.item.ItemBlock;
 import org.spongepowered.api.item.ItemType;
 import org.spongepowered.api.text.Text;
 import org.spongepowered.api.util.command.CommandSource;
@@ -197,7 +196,7 @@ public class BuildPermissionListener extends AbstractListener {
             Player player = (Player) rootCause;
             ItemType type = event.getItemStack().getItem();
 
-            if (type instanceof ItemBlock) {
+            if (type.getBlock().isPresent()) {
                 return;
             }
 

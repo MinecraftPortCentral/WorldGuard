@@ -57,7 +57,7 @@ public class WorldGuardHangingListener extends AbstractListener {
         WorldConfiguration wcfg = cfg.get(world);
 
         Entity remover;
-        if ((remover = event.getCause().getFirst(Entity.class).orNull()) != null) {
+        if ((remover = event.getCause().first(Entity.class).orElse(null)) != null) {
             if (remover instanceof Projectile) {
                 Projectile projectile = (Projectile) remover;
                 ProjectileSource source = projectile.getShooter();

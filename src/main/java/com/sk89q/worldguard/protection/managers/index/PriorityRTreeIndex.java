@@ -19,6 +19,8 @@
 
 package com.sk89q.worldguard.protection.managers.index;
 
+import com.flowpowered.math.vector.Vector3i;
+
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.sk89q.worldedit.Vector;
@@ -67,15 +69,15 @@ public class PriorityRTreeIndex extends HashMapIndex {
     }
 
     @Override
-    public void applyContaining(Vector position, Predicate<ProtectedRegion> consumer) {
+    public void applyContaining(Vector3i position, Predicate<ProtectedRegion> consumer) {
         // Floor the vector to ensure we get accurate points
-        position = position.floor();
+        Vector pos = new Vector(position.getX(), position.getY(), position.getZ()).floor();
 
         Set<ProtectedRegion> seen = new HashSet<ProtectedRegion>();
-        MBR pointMBR = new SimpleMBR(position.getX(), position.getX(), position.getY(), position.getY(), position.getZ(), position.getZ());
+        MBR pointMBR = new SimpleMBR(pos.getX(), pos.getX(), pos.getY(), pos.getY(), pos.getZ(), pos.getZ());
 
         for (ProtectedRegion region : tree.find(pointMBR)) {
-            if (region.contains(position) && !seen.contains(region)) {
+            if (region.contains(pos) && !seen.contains(region)) {
                 seen.add(region);
                 if (!consumer.apply(region)) {
                     break;

@@ -20,11 +20,12 @@
 package com.sk89q.worldguard.protection.flags;
 
 import com.flowpowered.math.vector.Vector3d;
-import java.util.Optional;
 import com.sk89q.worldguard.sponge.WorldGuardPlugin;
 import org.spongepowered.api.entity.Transform;
 import org.spongepowered.api.world.Location;
 import org.spongepowered.api.world.World;
+
+import java.util.Optional;
 
 import javax.annotation.Nullable;
 
@@ -74,7 +75,6 @@ public class LazyLocation {
     public Transform<World> getTransform() {
         World world = findWorld(worldName);
         if (world == null) return null;
-        return WorldGuardPlugin.inst().getGame().getRegistry()
-                .createTransform(world).setPosition(position).setRotation(rotation);
+        return new Transform<World>(world, rotation);
     }
 }

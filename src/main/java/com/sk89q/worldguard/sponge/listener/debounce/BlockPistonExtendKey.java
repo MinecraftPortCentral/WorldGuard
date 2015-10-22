@@ -19,15 +19,14 @@
 
 package com.sk89q.worldguard.sponge.listener.debounce;
 
-import org.bukkit.block.Block;
-import org.bukkit.event.block.BlockPistonExtendEvent;
+import org.spongepowered.api.block.BlockSnapshot;
 
 import java.util.List;
 
 public class BlockPistonExtendKey {
 
-    private final Block piston;
-    private final List<Block> blocks;
+    private final BlockSnapshot piston;
+    private final List<BlockSnapshot> blocks;
     private final int blocksHashCode;
 
     public BlockPistonExtendKey(BlockPistonExtendEvent event) {

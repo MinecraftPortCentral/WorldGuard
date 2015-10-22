@@ -25,16 +25,18 @@ import com.sk89q.worldguard.LocalPlayer;
 import com.sk89q.worldguard.protection.association.RegionAssociable;
 import com.sk89q.worldguard.protection.flags.DefaultFlag;
 import com.sk89q.worldguard.protection.flags.Flag;
-import com.sk89q.worldguard.protection.flags.StateFlag;
 import com.sk89q.worldguard.protection.flags.StateFlag.State;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
-import org.bukkit.ChatColor;
+import org.spongepowered.api.text.Text;
+import org.spongepowered.api.text.Texts;
+import org.spongepowered.api.text.format.TextColors;
 
-import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Set;
+
+import javax.annotation.Nullable;
 
 /**
  * A region set that is to be used when region data has failed. Operations
@@ -44,9 +46,9 @@ public class FailedLoadRegionSet extends AbstractRegionSet {
 
     private static final FailedLoadRegionSet INSTANCE = new FailedLoadRegionSet();
 
-    private final String denyMessage = ChatColor.RED + "Region data for WorldGuard failed to load for this world, so " +
-            "everything has been protected as a precaution. Please inform a server administrator.";
-    private final Collection<String> denyMessageCollection = ImmutableList.of(denyMessage);
+    private final Text denyMessage = Texts.of(TextColors.RED + "Region data for WorldGuard failed to load for this world, so " +
+            "everything has been protected as a precaution. Please inform a server administrator.");
+    private final Collection<Text> denyMessageCollection = ImmutableList.of(denyMessage);
 
     private FailedLoadRegionSet() {
     }

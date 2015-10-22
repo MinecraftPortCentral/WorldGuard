@@ -31,11 +31,11 @@ public class TargetMatcherParser {
 
     public TargetMatcher fromInput(String input) throws TargetMatcherParseException {
         input = input.trim();
-        final BlockType material = WorldGuardPlugin.inst().getGame().getRegistry().getType(BlockType.class, input).orNull();
+        final BlockType material = WorldGuardPlugin.inst().getGame().getRegistry().getType(BlockType.class, input).orElse(null);
         if (material != null) {
             return new BlockTargetMatcher(material);
         }
-        final ItemType itemType = WorldGuardPlugin.inst().getGame().getRegistry().getType(ItemType.class, input).orNull();
+        final ItemType itemType = WorldGuardPlugin.inst().getGame().getRegistry().getType(ItemType.class, input).orElse(null);
         if (itemType != null) {
             return new ItemTargetMatcher(itemType);
         }

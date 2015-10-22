@@ -19,15 +19,17 @@
 
 package com.sk89q.worldguard.protection.managers.index;
 
+import com.sk89q.worldedit.Vector;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.sk89q.worldguard.util.Normal.normalize;
+import com.flowpowered.math.vector.Vector3i;
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
-import com.sk89q.worldedit.Vector;
-import com.sk89q.worldedit.Vector2D;
 import com.sk89q.worldguard.protection.managers.RegionDifference;
 import com.sk89q.worldguard.protection.managers.RemovalStrategy;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 
-import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -36,15 +38,14 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.sk89q.worldguard.util.Normal.normalize;
+import javax.annotation.Nullable;
 
 /**
- * An index that stores regions in a hash map, which allows for fast lookup
- * by ID but O(n) performance for spatial queries.
+ * An index that stores regions in a hash map, which allows for fast lookup by
+ * ID but O(n) performance for spatial queries.
  *
- * <p>This implementation supports concurrency to the extent that
- * a {@link ConcurrentMap} does.</p>
+ * <p>This implementation supports concurrency to the extent that a
+ * {@link ConcurrentMap} does.</p>
  */
 public class HashMapIndex extends AbstractRegionIndex implements ConcurrentRegionIndex {
 
@@ -66,7 +67,7 @@ public class HashMapIndex extends AbstractRegionIndex implements ConcurrentRegio
      */
     private void performAdd(ProtectedRegion region) {
         checkNotNull(region);
-        
+
         region.setDirty(true);
 
         synchronized (lock) {
@@ -93,7 +94,7 @@ public class HashMapIndex extends AbstractRegionIndex implements ConcurrentRegio
     @Override
     public void addAll(Collection<ProtectedRegion> regions) {
         checkNotNull(regions);
-        
+
         synchronized (lock) {
             for (ProtectedRegion region : regions) {
                 performAdd(region);
@@ -101,21 +102,6 @@ public class HashMapIndex extends AbstractRegionIndex implements ConcurrentRegio
 
             rebuildIndex();
         }
-    }
-
-    @Override
-    public void bias(Vector2D chunkPosition) {
-        // Nothing to do
-    }
-
-    @Override
-    public void biasAll(Collection<Vector2D> chunkPositions) {
-        // Nothing to do
-    }
-
-    @Override
-    public void forget(Vector2D chunkPosition) {
-        // Nothing to do
     }
 
     @Override
@@ -194,11 +180,12 @@ public class HashMapIndex extends AbstractRegionIndex implements ConcurrentRegio
     }
 
     @Override
-    public void applyContaining(final Vector position, final Predicate<ProtectedRegion> consumer) {
+    public void applyContaining(final Vector3i position, final Predicate<ProtectedRegion> consumer) {
         apply(new Predicate<ProtectedRegion>() {
+
             @Override
             public boolean apply(ProtectedRegion region) {
-                return !region.contains(position) || consumer.apply(region);
+                return !region.contains(new Vector(position.getX(), position.getY(), position.getZ())) || consumer.apply(region);
             }
         });
     }
@@ -285,10 +272,29 @@ public class HashMapIndex extends AbstractRegionIndex implements ConcurrentRegio
      * A factory for new instances using this index.
      */
     public static final class Factory implements Supplier<HashMapIndex> {
+
         @Override
         public HashMapIndex get() {
             return new HashMapIndex();
         }
+    }
+
+    @Override
+    public void bias(Vector3i chunkPosition) {
+        // TODO Auto-generated method stub
+
+    }
+
+    @Override
+    public void biasAll(Collection<Vector3i> chunkPosition) {
+        // TODO Auto-generated method stub
+
+    }
+
+    @Override
+    public void forget(Vector3i chunkPosition) {
+        // TODO Auto-generated method stub
+
     }
 
 }

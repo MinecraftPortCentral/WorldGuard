@@ -46,7 +46,7 @@ public class FeedFlag extends Handler {
             Integer minHunger = set.queryValue(localPlayer, DefaultFlag.MIN_FOOD);
             Integer maxHunger = set.queryValue(localPlayer, DefaultFlag.MAX_FOOD);
 
-            FoodData data = player.get(FoodData.class).orNull();
+            FoodData data = player.get(FoodData.class).orElse(null);
             if (data == null) return;
             if (feedAmount == null || feedDelay == null || feedAmount == 0 || feedDelay < 0) {
                 return;

@@ -1,12 +1,12 @@
 package com.sk89q.worldguard.sponge.util;
 
-import java.util.Optional;
 import org.spongepowered.api.block.BlockType;
 import org.spongepowered.api.block.BlockTypes;
 import org.spongepowered.api.entity.Entity;
 import org.spongepowered.api.entity.projectile.Projectile;
 import org.spongepowered.api.entity.projectile.source.ProjectileSource;
 import org.spongepowered.api.event.cause.Cause;
+import org.spongepowered.api.event.cause.entity.damage.DamageType;
 import org.spongepowered.api.event.cause.entity.damage.DamageTypes;
 import org.spongepowered.api.event.cause.entity.damage.source.BlockDamageSource;
 import org.spongepowered.api.event.cause.entity.damage.source.DamageSource;
@@ -17,6 +17,8 @@ import org.spongepowered.api.event.cause.entity.spawn.SpawnTypes;
 import org.spongepowered.api.event.cause.entity.teleport.TeleportCause;
 import org.spongepowered.api.event.cause.entity.teleport.TeleportTypes;
 import org.spongepowered.api.event.entity.DamageEntityEvent;
+
+import java.util.Optional;
 
 public final class Causes {
 
@@ -58,7 +60,7 @@ public final class Causes {
     }
 
     public static boolean isExplosion(Cause cause) {
-        return findDamageSource(cause, DamageSources.EXPLOSION);
+        return findDamageType(cause, DamageTypes.EXPLOSIVE);
     }
 
     public static boolean isWither(Cause cause) {
@@ -99,6 +101,15 @@ public final class Causes {
     private static boolean findDamageSource(Cause cause, DamageSource source) {
         for (DamageSource damageSource : cause.allOf(DamageSource.class)) {
             if (damageSource.equals(source)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    private static boolean findDamageType(Cause cause, DamageType type) {
+        for (DamageSource damageSource : cause.allOf(DamageSource.class)) {
+            if (damageSource.getDamageType().equals(type)) {
                 return true;
             }
         }

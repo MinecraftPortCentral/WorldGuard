@@ -36,7 +36,7 @@ import java.util.List;
  */
 public class BreakBlockEvent extends AbstractBlockEvent {
 
-    public BreakBlockEvent(@Nullable Event originalEvent, Cause cause, World world, List<Location> blocks, BlockType effectiveMaterial) {
+    public BreakBlockEvent(@Nullable Event originalEvent, Cause cause, World world, List<Location<World>> blocks, BlockType effectiveMaterial) {
         super(originalEvent, cause, world, blocks, effectiveMaterial);
     }
 

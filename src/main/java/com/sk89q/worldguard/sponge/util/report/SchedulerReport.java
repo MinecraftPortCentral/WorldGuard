@@ -37,7 +37,7 @@ public class SchedulerReport extends DataReport {
         for (Task task : tasks) {
             DataReport report = new DataReport("Task: " + task.getUniqueId());
             report.append("Owner", task.getOwner());
-            report.append("Runnable", task.getRunnable());
+            report.append("Runnable", task.getConsumer());
             report.append("Synchronous?", !task.isAsynchronous());
             append(report.getTitle(), report);
         }

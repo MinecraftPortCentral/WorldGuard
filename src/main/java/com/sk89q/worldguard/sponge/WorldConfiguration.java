@@ -249,9 +249,9 @@ public class WorldConfiguration {
         String val = parentConfig.getString(node, def.getName());
 
         if (config.getProperty(node) != null) {
-            return plugin.getGame().getRegistry().getType(ItemType.class, config.getString(node, def.getName())).or(def);
+            return plugin.getGame().getRegistry().getType(ItemType.class, config.getString(node, def.getName())).orElse(def);
         } else {
-            return plugin.getGame().getRegistry().getType(ItemType.class, val).or(def);
+            return plugin.getGame().getRegistry().getType(ItemType.class, val).orElse(def);
         }
     }
 
@@ -296,7 +296,7 @@ public class WorldConfiguration {
 
         Set<BlockType> types = new HashSet<BlockType>();
         for (String s : (childList.isEmpty() ? parentList : childList)) {
-            BlockType type = plugin.getGame().getRegistry().getType(BlockType.class, s).orNull();
+            BlockType type = plugin.getGame().getRegistry().getType(BlockType.class, s).orElse(null);
             if (type != null) types.add(type);
         }
         return types;

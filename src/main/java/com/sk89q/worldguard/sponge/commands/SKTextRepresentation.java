@@ -24,9 +24,9 @@ import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.TextBuilder;
 import org.spongepowered.api.text.TextRepresentation;
 import org.spongepowered.api.text.Texts;
-import org.spongepowered.api.text.format.BaseFormatting;
 import org.spongepowered.api.text.format.TextColor;
 import org.spongepowered.api.text.format.TextColors;
+import org.spongepowered.api.text.format.TextFormat;
 import org.spongepowered.api.text.format.TextStyle;
 import org.spongepowered.api.text.format.TextStyles;
 import org.spongepowered.api.util.TextMessageException;
@@ -41,31 +41,31 @@ public class SKTextRepresentation implements TextRepresentation {
 
     public final static SKTextRepresentation INSTANCE = new SKTextRepresentation();
     private static final char legacyChar = '`';
-    private static Map<Character, BaseFormatting> skCodes = new HashMap<Character, BaseFormatting>();
+    private static Map<Character, TextFormat> skCodes = new HashMap<Character, TextFormat>();
 
     static {
-        skCodes.put('R', TextColors.DARK_RED);
-        skCodes.put('r', TextColors.RED);
-        skCodes.put('Y', TextColors.YELLOW);
-        skCodes.put('y', TextColors.GOLD);
-        skCodes.put('g', TextColors.GREEN);
-        skCodes.put('G', TextColors.DARK_GREEN);
-        skCodes.put('c', TextColors.AQUA);
-        skCodes.put('C', TextColors.DARK_AQUA);
-        skCodes.put('b', TextColors.BLUE);
-        skCodes.put('B', TextColors.DARK_BLUE);
-        skCodes.put('p', TextColors.LIGHT_PURPLE);
-        skCodes.put('P', TextColors.DARK_PURPLE);
-        skCodes.put('0', TextColors.BLACK);
-        skCodes.put('1', TextColors.GRAY);
-        skCodes.put('2', TextColors.DARK_GRAY);
-        skCodes.put('w', TextColors.WHITE);
-        skCodes.put('k', TextStyles.OBFUSCATED);
-        skCodes.put('l', TextStyles.BOLD);
-        skCodes.put('m', TextStyles.STRIKETHROUGH);
-        skCodes.put('n', TextStyles.UNDERLINE);
-        skCodes.put('o', TextStyles.ITALIC);
-        skCodes.put('x', TextStyles.RESET);
+        skCodes.put('R', new TextFormat(TextColors.DARK_RED));
+        skCodes.put('r', new TextFormat(TextColors.RED));
+        skCodes.put('Y', new TextFormat(TextColors.YELLOW));
+        skCodes.put('y', new TextFormat(TextColors.GOLD));
+        skCodes.put('g', new TextFormat(TextColors.GREEN));
+        skCodes.put('G', new TextFormat(TextColors.DARK_GREEN));
+        skCodes.put('c', new TextFormat(TextColors.AQUA));
+        skCodes.put('C', new TextFormat(TextColors.DARK_AQUA));
+        skCodes.put('b', new TextFormat(TextColors.BLUE));
+        skCodes.put('B', new TextFormat(TextColors.DARK_BLUE));
+        skCodes.put('p', new TextFormat(TextColors.LIGHT_PURPLE));
+        skCodes.put('P', new TextFormat(TextColors.DARK_PURPLE));
+        skCodes.put('0', new TextFormat(TextColors.BLACK));
+        skCodes.put('1', new TextFormat(TextColors.GRAY));
+        skCodes.put('2', new TextFormat(TextColors.DARK_GRAY));
+        skCodes.put('w', new TextFormat(TextColors.WHITE));
+        skCodes.put('k', new TextFormat(TextStyles.OBFUSCATED));
+        skCodes.put('l', new TextFormat(TextStyles.BOLD));
+        skCodes.put('m', new TextFormat(TextStyles.STRIKETHROUGH));
+        skCodes.put('n', new TextFormat(TextStyles.UNDERLINE));
+        skCodes.put('o', new TextFormat(TextStyles.ITALIC));
+        skCodes.put('x', new TextFormat(TextStyles.RESET));
     }
 
     @Override
@@ -93,7 +93,7 @@ public class SKTextRepresentation implements TextRepresentation {
 
         int pos = input.length();
         do {
-            BaseFormatting format = skCodes.get(input.charAt(next + 1));
+            TextFormat format = skCodes.get(input.charAt(next + 1));
             if (format != null) {
                 int from = next + 2;
                 if (from != pos) {
@@ -138,18 +138,13 @@ public class SKTextRepresentation implements TextRepresentation {
         }
     }
 
-    private static boolean applyStyle(TextBuilder builder, BaseFormatting style) {
-        if (style.equals(TextStyles.RESET)) {
+    private static boolean applyStyle(TextBuilder builder, TextFormat format) {
+        if (format.getStyle().equals(TextStyles.RESET)) {
             return true;
-        } else if (style instanceof TextStyle) {
-            builder.style(((TextStyle) style));
-            return false;
-        } else if (style instanceof TextColor){
-            if (builder.getColor().equals(TextColors.NONE)) {
-                builder.color((TextColor) style);
-            }
+        } else {
+            builder.style(format.getStyle());
+            builder.color(format.getColor());
             return true;
         }
-        return false;
     }
 }

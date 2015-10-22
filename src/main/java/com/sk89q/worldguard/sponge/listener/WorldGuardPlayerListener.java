@@ -103,8 +103,7 @@ public class WorldGuardPlayerListener extends AbstractListener {
         WorldConfiguration wcfg = cfg.get(world);
 
         if (cfg.activityHaltToggle) {
-            player.sendMessage(Texts.of(TextColors.YELLOW,
-                    "Intensive server activity has been HALTED."));
+            player.sendMessage(Texts.of(TextColors.YELLOW, "Intensive server activity has been HALTED."));
             int removed = 0;
 
             for (Entity entity : world.getEntities()) {
@@ -115,14 +114,12 @@ public class WorldGuardPlayerListener extends AbstractListener {
             }
 
             if (removed > 10) {
-                log.info("Halt-Act: " + removed + " entities (>10) auto-removed from "
-                        + player.getWorld().getName());
+                log.info("Halt-Act: " + removed + " entities (>10) auto-removed from " + player.getWorld().getName());
             }
         }
 
         if (wcfg.fireSpreadDisableToggle) {
-            player.sendMessage(Texts.of(TextColors.YELLOW,
-                    "Fire spread is currently globally disabled for this world."));
+            player.sendMessage(Texts.of(TextColors.YELLOW, "Fire spread is currently globally disabled for this world."));
         }
 
         Events.fire(new ProcessPlayerEvent(player));
@@ -146,7 +143,7 @@ public class WorldGuardPlayerListener extends AbstractListener {
 
             for (Iterator<CommandSource> i = event.getSink().getRecipients().iterator(); i.hasNext();) {
                 CommandSource cs = i.next();
-                if (cs instanceof LocatedSource){
+                if (cs instanceof LocatedSource) {
                     if (!getPlugin().getRegionContainer().createQuery()
                             .testState(((LocatedSource) cs).getLocation(), (Player) null, DefaultFlag.RECEIVE_CHAT)) {
                         i.remove();
@@ -171,9 +168,8 @@ public class WorldGuardPlayerListener extends AbstractListener {
             if (!hostname.equals(hostKey)) {
                 event.setCancelled(true);
                 event.setMessage(Texts.of("You did not join with the valid host key!"));
-                log.warning("WorldGuard host key check: " +
-                        event.getProfile().getName() + " joined with '" + hostname +
-                        "' but '" + hostKey + "' was expected. Kicked!");
+                log.warning("WorldGuard host key check: " + event.getProfile().getName() + " joined with '" + hostname + "' but '" + hostKey
+                        + "' was expected. Kicked!");
                 return;
             }
         }
@@ -185,74 +181,82 @@ public class WorldGuardPlayerListener extends AbstractListener {
     }
 
     @Listener
-    public void onPlayerInteract(InteractBlockEvent.SourcePlayer event) {
-        checkInfiniteStacks(event.getSourceEntity());
+    public void onPlayerInteract(InteractBlockEvent event) {
+        if (event.getCause().first(Player.class).isPresent()) {
+            Player player = (Player) event.getCause().first(Player.class).get();
+            checkInfiniteStacks(player);
+        }
     }
 
     @Listener
-    public void onPlayerInteract(InteractEntityEvent.SourcePlayer event) {
-        checkInfiniteStacks(event.getSourceEntity());
+    public void onPlayerInteract(InteractEntityEvent event) {
+        if (event.getCause().first(Player.class).isPresent()) {
+            Player player = (Player) event.getCause().first(Player.class).get();
+            checkInfiniteStacks(player);
+        }
     }
 
     private void checkInfiniteStacks(Player player) {
-        if (getWorldConfig(player).removeInfiniteStacks
-                && !getPlugin().hasPermission(player, "worldguard.override.infinite-stack")) {
+        if (getWorldConfig(player).removeInfiniteStacks && !getPlugin().hasPermission(player, "worldguard.override.infinite-stack")) {
             Optional<ItemStack> item = player.getItemInHand();
-            if (!item.isPresent()) return;
+            if (!item.isPresent())
+                return;
             ItemStack heldItem = item.get();
             if (heldItem != null && heldItem.getQuantity() < 0) {
                 player.setItemInHand(null);
                 player.sendMessage(Texts.of(TextColors.RED, "Infinite stack removed."));
             }
             // TODO this is probably inefficient to do on every interact
-            for (Slot slot : player.getInventory().<Slot>slots()) {
+            for (Slot slot : player.getInventory().) {
                 if (slot.getStackSize() < 0) {
                     slot.clear();
                 }
             }
         }
     }
+
     /**
      * Called when a player right clicks a block.
      *
      * @param event Thrown event
      */
     @Listener
-    public void handleBlockRightClick(InteractBlockEvent.Use.SourcePlayer event) {
-        if (event.isCancelled()) {
-            return;
-        }
+    public void handleBlockRightClick(InteractBlockEvent.Secondary event) {
+        if (event.getCause().first(Player.class).isPresent()) {
+            Player player = (Player) event.getCause().first(Player.class).get();
+            if (event.isCancelled()) {
+                return;
+            }
+            World world = player.getWorld();
+            Location<World> block = event.getTargetBlock().getLocation().get();
 
-        Player player = event.getSourceEntity();
-        World world = player.getWorld();
-        Location<World> block = event.getTargetLocation();
+            WorldConfiguration wcfg = getWorldConfig(world);
 
-        WorldConfiguration wcfg = getWorldConfig(world);
+            if (wcfg.useRegions) {
+                ApplicableRegionSet set = getPlugin().getRegionContainer().createQuery().getApplicableRegions(block);
+                LocalPlayer localPlayer = getPlugin().wrapPlayer(player);
 
-        if (wcfg.useRegions) {
-            ApplicableRegionSet set = getPlugin().getRegionContainer().createQuery().getApplicableRegions(block);
-            LocalPlayer localPlayer = getPlugin().wrapPlayer(player);
+                if (player.getItemInHand().isPresent() && player.getItemInHand().get().getItem().equals(wcfg.regionWand)
+                        && getPlugin().hasPermission(player, "worldguard.region.wand")) {
+                    if (set.size() > 0) {
+                        player.sendMessage(Texts.of(TextColors.YELLOW, "Can you build? "
+                                + (set.testState(localPlayer, DefaultFlag.BUILD) ? "Yes" : "No")));
 
-            if (player.getItemInHand().isPresent() && player.getItemInHand().get().getItem().equals(wcfg.regionWand)
-                    && getPlugin().hasPermission(player, "worldguard.region.wand")) {
-                if (set.size() > 0) {
-                    player.sendMessage(Texts.of(TextColors.YELLOW, "Can you build? "
-                            + (set.testState(localPlayer, DefaultFlag.BUILD) ? "Yes" : "No")));
-
-                    StringBuilder str = new StringBuilder();
-                    for (Iterator<ProtectedRegion> it = set.iterator(); it.hasNext(); ) {
-                        str.append(it.next().getId());
-                        if (it.hasNext()) {
-                            str.append(", ");
+                        StringBuilder str = new StringBuilder();
+                        for (Iterator<ProtectedRegion> it = set.iterator(); it.hasNext();) {
+                            str.append(it.next().getId());
+                            if (it.hasNext()) {
+                                str.append(", ");
+                            }
                         }
+
+                        player.sendMessage(Texts.of(TextColors.YELLOW, "Applicable regions: " + str));
+                    } else {
+                        player.sendMessage(Texts.of(TextColors.YELLOW, "WorldGuard: No defined regions here!"));
                     }
 
-                    player.sendMessage(Texts.of(TextColors.YELLOW, "Applicable regions: " + str));
-                } else {
-                    player.sendMessage(Texts.of(TextColors.YELLOW, "WorldGuard: No defined regions here!"));
+                    event.setCancelled(true);
                 }
-
-                event.setCancelled(true);
             }
         }
     }
@@ -287,15 +291,12 @@ public class WorldGuardPlayerListener extends AbstractListener {
         WorldConfiguration wcfg = cfg.get(world);
 
         if (wcfg.useRegions) {
-            ApplicableRegionSet set = getPlugin().getRegionContainer().createQuery()
-                    .getApplicableRegions(event.getToTransform().getLocation());
-            ApplicableRegionSet setFrom = getPlugin().getRegionContainer().createQuery()
-                    .getApplicableRegions(event.getFromTransform().getLocation());
+            ApplicableRegionSet set = getPlugin().getRegionContainer().createQuery().getApplicableRegions(event.getToTransform().getLocation());
+            ApplicableRegionSet setFrom = getPlugin().getRegionContainer().createQuery().getApplicableRegions(event.getFromTransform().getLocation());
             LocalPlayer localPlayer = getPlugin().wrapPlayer(player);
 
             if (cfg.usePlayerTeleports) {
-                if (null != getPlugin().getSessionManager().get(player)
-                        .testMoveTo(player, event.getToTransform(), MoveType.TELEPORT)) {
+                if (null != getPlugin().getSessionManager().get(player).testMoveTo(player, event.getToTransform(), MoveType.TELEPORT)) {
                     event.setCancelled(true);
                     return;
                 }
@@ -304,8 +305,7 @@ public class WorldGuardPlayerListener extends AbstractListener {
             // TODO sponge see what sponge does with cause when this gets thrown
             if (Causes.isEnderPearlTeleport(event.getCause())) {
                 if (!(new RegionPermissionModel(getPlugin(), player).mayIgnoreRegionProtection(world))
-                        && !(set.testState(localPlayer, DefaultFlag.ENDERPEARL)
-                                && setFrom.testState(localPlayer, DefaultFlag.ENDERPEARL))) {
+                        && !(set.testState(localPlayer, DefaultFlag.ENDERPEARL) && setFrom.testState(localPlayer, DefaultFlag.ENDERPEARL))) {
                     player.sendMessage(Texts.of(TextColors.DARK_RED, "You're not allowed to go there."));
                     event.setCancelled(true);
                     return;
@@ -316,37 +316,40 @@ public class WorldGuardPlayerListener extends AbstractListener {
 
     @Listener
     public void onCommand(SendCommandEvent event) {
-        CommandSource cs = event.getSource();
-        ConfigurationManager cfg = getPlugin().getGlobalStateManager();
+        if (event.getCause().first(CommandSource.class).isPresent()) {
+            CommandSource cs = (CommandSource) event.getCause().first(CommandSource.class).get();
+            ConfigurationManager cfg = getPlugin().getGlobalStateManager();
 
-        if (cfg.blockInGameOp && !(cs instanceof ConsoleSource)) {
-            if (opPattern.matcher(event.getCommand()).matches()) {
-                cs.sendMessage(Texts.of(TextColors.RED, "/op can only be used in console (as set by a WG setting)."));
-                event.setCancelled(true);
-                return;
+            if (cfg.blockInGameOp && !(cs instanceof ConsoleSource)) {
+                if (opPattern.matcher(event.getCommand()).matches()) {
+                    cs.sendMessage(Texts.of(TextColors.RED, "/op can only be used in console (as set by a WG setting)."));
+                    event.setCancelled(true);
+                    return;
+                }
             }
-        }
 
-        if (!(cs instanceof LocatedSource)) return;
-        LocatedSource ls = (LocatedSource) cs;
-        World world = ls.getWorld();
-        WorldConfiguration wcfg = cfg.get(world);
-
-        if (wcfg.useRegions && !(new RegionPermissionModel(getPlugin(), cs).mayIgnoreRegionProtection(world))) {
-            ApplicableRegionSet set = getPlugin().getRegionContainer().createQuery().getApplicableRegions(ls.getLocation());
-
-            LocalPlayer localPlayer = null;
-            if (ls instanceof Player) {
-                 localPlayer = getPlugin().wrapPlayer(((Player) ls));
-            }
-            Set<String> allowedCommands = set.queryValue(localPlayer, DefaultFlag.ALLOWED_CMDS);
-            Set<String> blockedCommands = set.queryValue(localPlayer, DefaultFlag.BLOCKED_CMDS);
-            CommandFilter test = new CommandFilter(allowedCommands, blockedCommands);
-
-            if (!test.apply(event.getCommand() + " " + event.getArguments())) {
-                cs.sendMessage(Texts.of(TextColors.RED, " '" + event.getCommand() + " " + event.getArguments() + "' is not allowed in this area."));
-                event.setCancelled(true);
+            if (!(cs instanceof LocatedSource))
                 return;
+            LocatedSource ls = (LocatedSource) cs;
+            World world = ls.getWorld();
+            WorldConfiguration wcfg = cfg.get(world);
+
+            if (wcfg.useRegions && !(new RegionPermissionModel(getPlugin(), cs).mayIgnoreRegionProtection(world))) {
+                ApplicableRegionSet set = getPlugin().getRegionContainer().createQuery().getApplicableRegions(ls.getLocation());
+
+                LocalPlayer localPlayer = null;
+                if (ls instanceof Player) {
+                    localPlayer = getPlugin().wrapPlayer(((Player) ls));
+                }
+                Set<String> allowedCommands = set.queryValue(localPlayer, DefaultFlag.ALLOWED_CMDS);
+                Set<String> blockedCommands = set.queryValue(localPlayer, DefaultFlag.BLOCKED_CMDS);
+                CommandFilter test = new CommandFilter(allowedCommands, blockedCommands);
+
+                if (!test.apply(event.getCommand() + " " + event.getArguments())) {
+                    cs.sendMessage(Texts.of(TextColors.RED, " '" + event.getCommand() + " " + event.getArguments() + "' is not allowed in this area."));
+                    event.setCancelled(true);
+                    return;
+                }
             }
         }
     }

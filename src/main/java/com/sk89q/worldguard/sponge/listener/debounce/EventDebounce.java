@@ -19,15 +19,16 @@
 
 package com.sk89q.worldguard.sponge.listener.debounce;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.sk89q.worldguard.sponge.util.Events;
-import com.sk89q.guavabackport.cache.CacheBuilder;
-import com.sk89q.guavabackport.cache.CacheLoader;
-import com.sk89q.guavabackport.cache.LoadingCache;
-import org.bukkit.event.Cancellable;
-import org.bukkit.event.Event;
+import org.spongepowered.api.event.Cancellable;
+import org.spongepowered.api.event.Event;
+
+import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Nullable;
-import java.util.concurrent.TimeUnit;
 
 public class EventDebounce<K> {
 

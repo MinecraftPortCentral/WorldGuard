@@ -63,7 +63,7 @@ public class TargetMatcherSet {
     }
 
     public boolean test(ItemType type) {
-        return test(new ItemTarget(WorldGuardPlugin.inst().getGame().getRegistry().getItemBuilder().itemType(type).quantity(1).build()));
+        return test(new ItemTarget(WorldGuardPlugin.inst().getGame().getRegistry().createItemBuilder().itemType(type).quantity(1).build()));
     }
 
     @Override

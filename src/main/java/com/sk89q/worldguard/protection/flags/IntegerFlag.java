@@ -36,7 +36,7 @@ public class IntegerFlag extends Flag<Integer> {
     }
 
     @Override
-    public Integer parseInput(WorldGuardPlugin plugin, CommandSource sender, String input) throws InvalidFlagFormat {
+    public Integer parseInput(WorldGuardPlugin plugin, CommandSource sender,String input) throws InvalidFlagFormat {
         input = input.trim();
 
         try {

@@ -83,13 +83,13 @@ public final class RegionManager {
     }
 
     /**
-     * Load regions from storage and replace the index on this manager with
-     * the regions loaded from the store.
+     * Load regions from storage and replace the index on this manager with the
+     * regions loaded from the store.
      *
-     * <p>This method will block until the save completes, but it will
-     * not block access to the region data from other threads, nor will it
-     * prevent the creation or modification of regions in the index while
-     * a new collection of regions is loaded from storage.</p>
+     * <p>This method will block until the save completes, but it will not block
+     * access to the region data from other threads, nor will it prevent the
+     * creation or modification of regions in the index while a new collection
+     * of regions is loaded from storage.</p>
      *
      * @throws StorageException thrown when loading fails
      */
@@ -112,9 +112,9 @@ public final class RegionManager {
     }
 
     /**
-     * Save changes to the region index to disk, preferring to only save
-     * the changes (rather than the whole index), but choosing to save the
-     * whole index if the underlying store does not support partial saves.
+     * Save changes to the region index to disk, preferring to only save the
+     * changes (rather than the whole index), but choosing to save the whole
+     * index if the underlying store does not support partial saves.
      *
      * <p>This method does nothing if there are no changes.</p>
      *
@@ -173,11 +173,11 @@ public final class RegionManager {
     }
 
     /**
-     * Get an unmodifiable map of regions containing the state of the
-     * index at the time of call.
+     * Get an unmodifiable map of regions containing the state of the index at
+     * the time of call.
      *
-     * <p>This call is relatively heavy (and may block other threads),
-     * so refrain from calling it frequently.</p>
+     * <p>This call is relatively heavy (and may block other threads), so
+     * refrain from calling it frequently.</p>
      *
      * @return a map of regions
      */
@@ -192,8 +192,8 @@ public final class RegionManager {
     /**
      * Replace the index with the regions in the given map.
      *
-     * <p>The parents of the regions will also be added to the index, even
-     * if they are not in the provided map.</p>
+     * <p>The parents of the regions will also be added to the index, even if
+     * they are not in the provided map.</p>
      *
      * @param regions a map of regions
      */
@@ -206,8 +206,8 @@ public final class RegionManager {
     /**
      * Replace the index with the regions in the given collection.
      *
-     * <p>The parents of the regions will also be added to the index, even
-     * if they are not in the provided map.</p>
+     * <p>The parents of the regions will also be added to the index, even if
+     * they are not in the provided map.</p>
      *
      * @param regions a collection of regions
      */
@@ -233,8 +233,8 @@ public final class RegionManager {
     }
 
     /**
-     * Return whether the index contains a region by the given name,
-     * with equality determined by {@link Normal}.
+     * Return whether the index contains a region by the given name, with
+     * equality determined by {@link Normal}.
      *
      * @param id the name of the region
      * @return true if this index contains the region
@@ -257,7 +257,7 @@ public final class RegionManager {
     }
 
     /**
-     * Matches a region using either the pattern {@code #{region_index}} or
+     * Matches a region using either the pattern {@code # region_index}} or
      * simply by the exact name of the region.
      *
      * @param pattern the pattern
@@ -287,11 +287,12 @@ public final class RegionManager {
     }
 
     /**
-     * Remove a region from the index with the given name, opting to remove
-     * the children of the removed region.
+     * Remove a region from the index with the given name, opting to remove the
+     * children of the removed region.
      *
      * @param id the name of the region
-     * @return a list of removed regions where the first entry is the region specified by {@code id}
+     * @return a list of removed regions where the first entry is the region
+     *         specified by {@code id}
      */
     @Nullable
     public Set<ProtectedRegion> removeRegion(String id) {
@@ -303,7 +304,8 @@ public final class RegionManager {
      *
      * @param id the name of the region
      * @param strategy what to do with children
-     * @return a list of removed regions where the first entry is the region specified by {@code id}
+     * @return a list of removed regions where the first entry is the region
+     *         specified by {@code id}
      */
     @Nullable
     public Set<ProtectedRegion> removeRegion(String id, RemovalStrategy strategy) {
@@ -320,13 +322,13 @@ public final class RegionManager {
         checkNotNull(position);
 
         Set<ProtectedRegion> regions = Sets.newHashSet();
-        index.applyContaining(position, new RegionCollectionConsumer(regions, true));
+        index.applyContaining(position.toInt(), new RegionCollectionConsumer(regions, true));
         return new RegionResultSet(regions, index.get("__global__"));
     }
 
     /**
-     * Query for effective flags and owners for the area represented
-     * by the given region.
+     * Query for effective flags and owners for the area represented by the
+     * given region.
      *
      * @param region the region
      * @return the query object
@@ -350,7 +352,8 @@ public final class RegionManager {
 
         final List<String> names = new ArrayList<String>();
 
-        index.applyContaining(position, new Predicate<ProtectedRegion>() {
+        index.applyContaining(position.toInt(), new Predicate<ProtectedRegion>() {
+
             @Override
             public boolean apply(ProtectedRegion region) {
                 return names.add(region.getId());
@@ -377,6 +380,7 @@ public final class RegionManager {
         final AtomicBoolean overlapsUnowned = new AtomicBoolean();
 
         index.applyIntersecting(region, new Predicate<ProtectedRegion>() {
+
             @Override
             public boolean apply(ProtectedRegion test) {
                 if (!test.getOwners().contains(player)) {
@@ -412,6 +416,7 @@ public final class RegionManager {
         final AtomicInteger count = new AtomicInteger();
 
         index.apply(new Predicate<ProtectedRegion>() {
+
             @Override
             public boolean apply(ProtectedRegion test) {
                 if (test.getOwners().contains(player)) {

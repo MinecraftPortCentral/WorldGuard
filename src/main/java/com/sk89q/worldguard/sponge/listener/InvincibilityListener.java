@@ -19,17 +19,14 @@
 
 package com.sk89q.worldguard.sponge.listener;
 
+import org.spongepowered.api.data.key.Keys;
+
 import com.sk89q.worldguard.sponge.WorldConfiguration;
 import com.sk89q.worldguard.sponge.WorldGuardPlugin;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Player;
-import org.bukkit.entity.Tameable;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.entity.EntityCombustEvent;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.entity.FoodLevelChangeEvent;
+import org.spongepowered.api.entity.Entity;
+import org.spongepowered.api.entity.living.player.Player;
+import org.spongepowered.api.event.Listener;
+import org.spongepowered.api.event.entity.DamageEntityEvent;
 
 public class InvincibilityListener extends AbstractListener {
 
@@ -52,9 +49,9 @@ public class InvincibilityListener extends AbstractListener {
         return getPlugin().getSessionManager().get(player).isInvincible(player);
     }
 
-    @EventHandler(ignoreCancelled = true)
-    public void onEntityDamage(EntityDamageEvent event) {
-        Entity victim = event.getEntity();
+    @Listener
+    public void onEntityDamage(DamageEntityEvent event) {
+        Entity victim = event.getTargetEntity();
         WorldConfiguration worldConfig = getPlugin().getGlobalStateManager().get(victim.getWorld());
 
         if (victim instanceof Player) {
@@ -78,7 +75,7 @@ public class InvincibilityListener extends AbstractListener {
         }
     }
 
-    @EventHandler(ignoreCancelled = true)
+    @Listener
     public void onEntityCombust(EntityCombustEvent event) {
         Entity entity = event.getEntity();
 
@@ -91,12 +88,12 @@ public class InvincibilityListener extends AbstractListener {
         }
     }
 
-    @EventHandler(ignoreCancelled = true)
+    @Listener
     public void onFoodLevelChange(FoodLevelChangeEvent event) {
         if (event.getEntity() instanceof Player) {
             Player player = (Player) event.getEntity();
 
-            if (event.getFoodLevel() < player.getFoodLevel() && isInvincible(player)) {
+            if (event.getFoodLevel() < player.getFoodData().get(Keys.FOOD_LEVEL) && isInvincible(player)) {
                 event.setCancelled(true);
             }
         }

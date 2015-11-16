@@ -19,9 +19,9 @@
 
 package com.sk89q.worldguard.sponge.listener;
 
-import java.util.Optional;
 import com.google.common.base.Predicate;
 import com.sk89q.worldedit.blocks.BlockID;
+import com.sk89q.worldedit.foundation.Block;
 import com.sk89q.worldguard.protection.ApplicableRegionSet;
 import com.sk89q.worldguard.protection.association.RegionAssociable;
 import com.sk89q.worldguard.protection.flags.DefaultFlag;
@@ -29,21 +29,24 @@ import com.sk89q.worldguard.sponge.ConfigurationManager;
 import com.sk89q.worldguard.sponge.RegionQuery;
 import com.sk89q.worldguard.sponge.WorldConfiguration;
 import com.sk89q.worldguard.sponge.WorldGuardPlugin;
+import com.sk89q.worldguard.sponge.event.block.PlaceBlockEvent;
 import com.sk89q.worldguard.sponge.util.Materials;
-import org.spongepowered.api.block.BlockTransaction;
+import org.spongepowered.api.block.BlockSnapshot;
 import org.spongepowered.api.block.BlockTypes;
+import org.spongepowered.api.data.Transaction;
 import org.spongepowered.api.data.key.Keys;
 import org.spongepowered.api.data.manipulator.mutable.item.DurabilityData;
+import org.spongepowered.api.effect.particle.ParticleEffect.Material;
 import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.event.Listener;
-import org.spongepowered.api.event.block.BreakBlockEvent;
-import org.spongepowered.api.event.block.PlaceBlockEvent;
+import org.spongepowered.api.event.block.ChangeBlockEvent;
 import org.spongepowered.api.item.inventory.ItemStack;
 import org.spongepowered.api.util.Direction;
 import org.spongepowered.api.world.Location;
 import org.spongepowered.api.world.World;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * The listener for block events.
@@ -65,16 +68,17 @@ public class WorldGuardBlockListener extends AbstractListener {
      * Called when a block is broken.
      */
     @Listener
-    public void onBlockBreak(BreakBlockEvent event) {
-        Player player = event.getCause().getFirst(Player.class).orNull();
-        if (player == null) return;
-        WorldConfiguration wcfg = getWorldConfig(player);
+    public void onBlockBreak(ChangeBlockEvent.Break event) {
+        if (event.getCause().first(Player.class).isPresent()) {
+            Player player = (Player) event.getCause().first(Player.class).get();
+            WorldConfiguration wcfg = getWorldConfig(player);
 
-        if (!wcfg.itemDurability) {
-            ItemStack held = player.getItemInHand().orNull();
-            if (held != null && held.supports(Keys.ITEM_DURABILITY)) {
-                held.offer(Keys.ITEM_DURABILITY, held.get(DurabilityData.class).get().durability().getMaxValue());
-                player.setItemInHand(held);
+            if (!wcfg.itemDurability) {
+                ItemStack held = player.getItemInHand().orElse(null);
+                if (held != null && held.supports(Keys.ITEM_DURABILITY)) {
+                    held.offer(Keys.ITEM_DURABILITY, held.get(DurabilityData.class).get().durability().getMaxValue());
+                    player.setItemInHand(held);
+                }
             }
         }
     }
@@ -83,112 +87,118 @@ public class WorldGuardBlockListener extends AbstractListener {
      * Called when fluids flow.
      */
     @Listener
-    public void onBlockFromTo(final PlaceBlockEvent event) {
-        Location<World> block = event.getCause().getFirst(Location.class).orNull();
-        if (block == null) return;
-        final World world = block.getExtent();
-        List<BlockTransaction> changes = event.getTransactions();
+    public void onBlockFromTo(final ChangeBlockEvent.Place event) {
+        List<Transaction<BlockSnapshot>> changes = event.getTransactions();
 
-        // todo add || event.getCause().getFirst(BlockSnapshot.class) to test for liquid movement
-        boolean isWater = Materials.isWater(block.getBlockType());
-        boolean isLava = Materials.isLava(block.getBlockType());
-        boolean isAir = block.getBlockType().equals(BlockTypes.AIR);
+        for (Transaction<BlockSnapshot> transaction : changes) {
+            Location<World> block = transaction.getFinal().getLocation().get();
+            World world = block.getExtent();
+            // TODO: add || event.getCause().getFirst(BlockSnapshot.class) to
+            // test
+            // for liquid movement
+            boolean isWater = Materials.isWater(block.getBlockType());
+            boolean isLava = Materials.isLava(block.getBlockType());
+            boolean isAir = block.getBlockType().equals(BlockTypes.AIR);
 
-        ConfigurationManager cfg = getPlugin().getGlobalStateManager();
-        final WorldConfiguration wcfg = getWorldConfig(world);
+            ConfigurationManager cfg = getPlugin().getGlobalStateManager();
+            final WorldConfiguration wcfg = getWorldConfig(world);
 
-        if (cfg.activityHaltToggle) {
-            event.setCancelled(true);
-            return;
-        }
+            if (cfg.activityHaltToggle) {
+                event.setCancelled(true);
+                return;
+            }
 
-        if (wcfg.simulateSponge && isWater) {
-            event.filter(new Predicate<Location<World>>() {
-                @Override
-                public boolean apply(Location<World> loc) {
-                    int ox = loc.getBlockX();
-                    int oy = loc.getBlockY();
-                    int oz = loc.getBlockZ();
+            if (wcfg.simulateSponge && isWater) {
+                event.filter(new Predicate<Location<World>>() {
 
-                    for (int cx = -wcfg.spongeRadius; cx <= wcfg.spongeRadius; cx++) {
-                        for (int cy = -wcfg.spongeRadius; cy <= wcfg.spongeRadius; cy++) {
-                            for (int cz = -wcfg.spongeRadius; cz <= wcfg.spongeRadius; cz++) {
-                                Location<World> sponge = world.getLocation(ox + cx, oy + cy, oz + cz);
-                                if (sponge.getBlockType().equals(BlockTypes.SPONGE)
-                                        && (!wcfg.redstoneSponges || !sponge.getPoweredBlockFaces().isEmpty())) {
-                                    return false;
+                    @Override
+                    public boolean apply(Location<World> loc) {
+                        int ox = loc.getBlockX();
+                        int oy = loc.getBlockY();
+                        int oz = loc.getBlockZ();
+
+                        for (int cx = -wcfg.spongeRadius; cx <= wcfg.spongeRadius; cx++) {
+                            for (int cy = -wcfg.spongeRadius; cy <= wcfg.spongeRadius; cy++) {
+                                for (int cz = -wcfg.spongeRadius; cz <= wcfg.spongeRadius; cz++) {
+                                    Location<World> sponge = world.getLocation(ox + cx, oy + cy, oz + cz);
+                                    if (sponge.getBlockType().equals(BlockTypes.SPONGE)
+                                            && (!wcfg.redstoneSponges || !sponge.getPoweredBlockFaces().isEmpty())) {
+                                        return false;
+                                    }
                                 }
                             }
                         }
-                    }
-                    return true;
-                }
-            });
-        }
-
-        /*if (plugin.classicWater && isWater) {
-        int blockBelow = blockFrom.getRelative(0, -1, 0).getTypeId();
-        if (blockBelow != 0 && blockBelow != 8 && blockBelow != 9) {
-        blockFrom.setTypeId(9);
-        if (blockTo.getTypeId() == 0) {
-        blockTo.setTypeId(9);
-        }
-        return;
-        }
-        }*/
-
-        // Check the fluid block (from) whether it is air.
-        // If so and the target block is protected, cancel the event
-        if (!wcfg.preventWaterDamage.isEmpty()) {
-            if ((isAir || isWater)) {
-                event.filter(new Predicate<Location<World>>() {
-                    @Override
-                    public boolean apply(Location<World> loc) {
-                        return !wcfg.preventWaterDamage.contains(loc.getBlockType());
+                        return true;
                     }
                 });
             }
-        }
 
-        if (!wcfg.allowedLavaSpreadOver.isEmpty() && isLava) {
-            event.filter(new Predicate<Location<World>>() {
-                @Override
-                public boolean apply(Location<World> loc) {
-                    return !wcfg.allowedLavaSpreadOver.contains(loc.getRelative(Direction.DOWN).getBlockType());
+            /*
+             * if (plugin.classicWater && isWater) { int blockBelow =
+             * blockFrom.getRelative(0, -1, 0).getTypeId(); if (blockBelow != 0
+             * && blockBelow != 8 && blockBelow != 9) { blockFrom.setTypeId(9);
+             * if (blockTo.getTypeId() == 0) { blockTo.setTypeId(9); } return; }
+             * }
+             */
+
+            // Check the fluid block (from) whether it is air.
+            // If so and the target block is protected, cancel the event
+            if (!wcfg.preventWaterDamage.isEmpty()) {
+                if ((isAir || isWater)) {
+                    event.filter(new Predicate<Location<World>>() {
+
+                        @Override
+                        public boolean apply(Location<World> loc) {
+                            return !wcfg.preventWaterDamage.contains(loc.getBlockType());
+                        }
+                    });
                 }
-            });
-        }
+            }
 
-        if (wcfg.highFreqFlags && isWater) {
-            final RegionQuery query = getPlugin().getRegionContainer().createQuery();
-            event.filter(new Predicate<Location<World>>() {
-                @Override
-                public boolean apply(Location<World> loc) {
-                    return query.testState(loc, (RegionAssociable) null, DefaultFlag.WATER_FLOW);
-                }
-            });
-        }
+            if (!wcfg.allowedLavaSpreadOver.isEmpty() && isLava) {
+                event.filter(new Predicate<Location<World>>() {
 
-        if (wcfg.highFreqFlags && isLava) {
-            final RegionQuery query = getPlugin().getRegionContainer().createQuery();
-            event.filter(new Predicate<Location<World>>() {
-                @Override
-                public boolean apply(Location<World> loc) {
-                    return query.testState(loc, (RegionAssociable) null, DefaultFlag.LAVA_FLOW);
-                }
-            });
-        }
-
-        if (wcfg.disableObsidianGenerators && (isAir || isLava)) {
-            event.filter(new Predicate<Location<World>>() {
-                @Override
-                public boolean apply(Location<World> loc) {
-                    if (loc.getBlockType().equals(BlockTypes.REDSTONE_WIRE) || loc.getBlockType().equals(BlockTypes.TRIPWIRE)) {
-                        loc.setBlockType(BlockTypes.AIR);
+                    @Override
+                    public boolean apply(Location<World> loc) {
+                        return !wcfg.allowedLavaSpreadOver.contains(loc.getRelative(Direction.DOWN).getBlockType());
                     }
-                    return true;
-                }
-            });
+                });
+            }
+
+            if (wcfg.highFreqFlags && isWater) {
+                final RegionQuery query = getPlugin().getRegionContainer().createQuery();
+                event.filter(new Predicate<Location<World>>() {
+
+                    @Override
+                    public boolean apply(Location<World> loc) {
+                        return query.testState(loc, (RegionAssociable) null, DefaultFlag.WATER_FLOW);
+                    }
+                });
+            }
+
+            if (wcfg.highFreqFlags && isLava) {
+                final RegionQuery query = getPlugin().getRegionContainer().createQuery();
+                event.filter(new Predicate<Location<World>>() {
+
+                    @Override
+                    public boolean apply(Location<World> loc) {
+                        return query.testState(loc, (RegionAssociable) null, DefaultFlag.LAVA_FLOW);
+                    }
+                });
+            }
+
+            if (wcfg.disableObsidianGenerators && (isAir || isLava)) {
+                event.filter(new Predicate<Location<World>>() {
+
+                    @Override
+                    public boolean apply(Location<World> loc) {
+                        if (loc.getBlockType().equals(BlockTypes.REDSTONE_WIRE) || loc.getBlockType().equals(BlockTypes.TRIPWIRE)) {
+                            loc.setBlockType(BlockTypes.AIR);
+                        }
+                        return true;
+                    }
+                });
+            }
         }
     }
 
@@ -199,14 +209,18 @@ public class WorldGuardBlockListener extends AbstractListener {
     public void onBlockIgnite(PlaceBlockEvent event) {
         final ConfigurationManager cfg = getPlugin().getGlobalStateManager();
         Optional<Location<World>> optWorld = event.getTransactions().get(0).getFinalReplacement().getLocation();
-        if (!optWorld.isPresent()) return; // PANIC!!!!
+        if (!optWorld.isPresent())
+            return; // PANIC!!!!
         WorldConfiguration wcfg = cfg.get(optWorld.get().getExtent());
 
         event.filter(new Predicate<Location<World>>() {
+
             @Override
             public boolean apply(Location<World> location) {
-                if (!location.getBlockType().equals(BlockTypes.FIRE)) return true;
-                if (cfg.activityHaltToggle) return false;
+                if (!location.getBlockType().equals(BlockTypes.FIRE))
+                    return true;
+                if (cfg.activityHaltToggle)
+                    return false;
 
                 return true;
             }
@@ -233,8 +247,7 @@ public class WorldGuardBlockListener extends AbstractListener {
             return;
         }
 
-        if (wcfg.blockLighter && (cause == IgniteCause.FLINT_AND_STEEL || cause == IgniteCause.FIREBALL)
-                && event.getPlayer() != null
+        if (wcfg.blockLighter && (cause == IgniteCause.FLINT_AND_STEEL || cause == IgniteCause.FIREBALL) && event.getPlayer() != null
                 && !plugin.hasPermission(event.getPlayer(), "worldguard.override.lighter")) {
             event.setCancelled(true);
             return;
@@ -263,14 +276,12 @@ public class WorldGuardBlockListener extends AbstractListener {
         if (wcfg.useRegions) {
             ApplicableRegionSet set = plugin.getRegionContainer().createQuery().getApplicableRegions(block.getLocation());
 
-            if (wcfg.highFreqFlags && isFireSpread
-                    && !set.allows(DefaultFlag.FIRE_SPREAD)) {
+            if (wcfg.highFreqFlags && isFireSpread && !set.allows(DefaultFlag.FIRE_SPREAD)) {
                 event.setCancelled(true);
                 return;
             }
 
-            if (wcfg.highFreqFlags && cause == IgniteCause.LAVA
-                    && !set.allows(DefaultFlag.LAVA_FIRE)) {
+            if (wcfg.highFreqFlags && cause == IgniteCause.LAVA && !set.allows(DefaultFlag.LAVA_FIRE)) {
                 event.setCancelled(true);
                 return;
             }
@@ -442,11 +453,9 @@ public class WorldGuardBlockListener extends AbstractListener {
                 for (int cy = -1; cy <= 1; cy++) {
                     for (int cz = -1; cz <= 1; cz++) {
                         Block sponge = world.getBlockAt(ox + cx, oy + cy, oz + cz);
-                        if (sponge.getTypeId() == 19
-                                && sponge.isBlockIndirectlyPowered()) {
+                        if (sponge.getTypeId() == 19 && sponge.isBlockIndirectlyPowered()) {
                             SpongeUtil.clearSpongeWater(plugin, world, ox + cx, oy + cy, oz + cz);
-                        } else if (sponge.getTypeId() == 19
-                                && !sponge.isBlockIndirectlyPowered()) {
+                        } else if (sponge.getTypeId() == 19 && !sponge.isBlockIndirectlyPowered()) {
                             SpongeUtil.addSpongeWater(plugin, world, ox + cx, oy + cy, oz + cz);
                         }
                     }
@@ -457,7 +466,7 @@ public class WorldGuardBlockListener extends AbstractListener {
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @Listener
     public void onLeavesDecay(LeavesDecayEvent event) {
         ConfigurationManager cfg = plugin.getGlobalStateManager();
         WorldConfiguration wcfg = cfg.get(event.getBlock().getWorld());
@@ -473,8 +482,7 @@ public class WorldGuardBlockListener extends AbstractListener {
         }
 
         if (wcfg.useRegions) {
-            if (!plugin.getGlobalRegionManager().allows(DefaultFlag.LEAF_DECAY,
-                    event.getBlock().getLocation())) {
+            if (!plugin.getGlobalRegionManager().allows(DefaultFlag.LEAF_DECAY, event.getBlock().getLocation())) {
                 event.setCancelled(true);
             }
         }
@@ -483,7 +491,7 @@ public class WorldGuardBlockListener extends AbstractListener {
     /*
      * Called when a block is formed based on world conditions.
      */
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @Listener
     public void onBlockForm(BlockFormEvent event) {
         ConfigurationManager cfg = plugin.getGlobalStateManager();
         WorldConfiguration wcfg = cfg.get(event.getBlock().getWorld());
@@ -510,8 +518,7 @@ public class WorldGuardBlockListener extends AbstractListener {
                 event.setCancelled(true);
                 return;
             }
-            if (wcfg.useRegions && !plugin.getGlobalRegionManager().allows(
-                    DefaultFlag.ICE_FORM, event.getBlock().getLocation())) {
+            if (wcfg.useRegions && !plugin.getGlobalRegionManager().allows(DefaultFlag.ICE_FORM, event.getBlock().getLocation())) {
                 event.setCancelled(true);
                 return;
             }
@@ -530,8 +537,7 @@ public class WorldGuardBlockListener extends AbstractListener {
                     return;
                 }
             }
-            if (wcfg.useRegions && !plugin.getGlobalRegionManager().allows(
-                    DefaultFlag.SNOW_FALL, event.getBlock().getLocation())) {
+            if (wcfg.useRegions && !plugin.getGlobalRegionManager().allows(DefaultFlag.SNOW_FALL, event.getBlock().getLocation())) {
                 event.setCancelled(true);
                 return;
             }
@@ -541,7 +547,7 @@ public class WorldGuardBlockListener extends AbstractListener {
     /*
      * Called when a block spreads based on world conditions.
      */
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @Listener
     public void onBlockSpread(BlockSpreadEvent event) {
         ConfigurationManager cfg = plugin.getGlobalStateManager();
         WorldConfiguration wcfg = cfg.get(event.getBlock().getWorld());
@@ -558,8 +564,7 @@ public class WorldGuardBlockListener extends AbstractListener {
                 event.setCancelled(true);
                 return;
             }
-            if (wcfg.useRegions && !plugin.getGlobalRegionManager().allows(
-                    DefaultFlag.MUSHROOMS, event.getBlock().getLocation())) {
+            if (wcfg.useRegions && !plugin.getGlobalRegionManager().allows(DefaultFlag.MUSHROOMS, event.getBlock().getLocation())) {
                 event.setCancelled(true);
                 return;
             }
@@ -570,8 +575,7 @@ public class WorldGuardBlockListener extends AbstractListener {
                 event.setCancelled(true);
                 return;
             }
-            if (wcfg.useRegions && !plugin.getGlobalRegionManager().allows(
-                    DefaultFlag.GRASS_SPREAD, event.getBlock().getLocation())) {
+            if (wcfg.useRegions && !plugin.getGlobalRegionManager().allows(DefaultFlag.GRASS_SPREAD, event.getBlock().getLocation())) {
                 event.setCancelled(true);
                 return;
             }
@@ -583,9 +587,7 @@ public class WorldGuardBlockListener extends AbstractListener {
                 return;
             }
 
-            if (wcfg.useRegions
-                    && !plugin.getGlobalRegionManager().allows(
-                            DefaultFlag.MYCELIUM_SPREAD, event.getBlock().getLocation())) {
+            if (wcfg.useRegions && !plugin.getGlobalRegionManager().allows(DefaultFlag.MYCELIUM_SPREAD, event.getBlock().getLocation())) {
                 event.setCancelled(true);
                 return;
             }
@@ -597,9 +599,7 @@ public class WorldGuardBlockListener extends AbstractListener {
                 return;
             }
 
-            if (wcfg.useRegions
-                    && !plugin.getGlobalRegionManager().allows(
-                            DefaultFlag.VINE_GROWTH, event.getBlock().getLocation())) {
+            if (wcfg.useRegions && !plugin.getGlobalRegionManager().allows(DefaultFlag.VINE_GROWTH, event.getBlock().getLocation())) {
                 event.setCancelled(true);
                 return;
             }
@@ -609,50 +609,47 @@ public class WorldGuardBlockListener extends AbstractListener {
     /*
      * Called when a block fades.
      */
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @Listener
     public void onBlockFade(BlockFadeEvent event) {
 
         ConfigurationManager cfg = plugin.getGlobalStateManager();
         WorldConfiguration wcfg = cfg.get(event.getBlock().getWorld());
 
         switch (event.getBlock().getTypeId()) {
-        case BlockID.ICE:
-            if (wcfg.disableIceMelting) {
-                event.setCancelled(true);
-                return;
-            }
+            case BlockID.ICE:
+                if (wcfg.disableIceMelting) {
+                    event.setCancelled(true);
+                    return;
+                }
 
-            if (wcfg.useRegions && !plugin.getGlobalRegionManager().allows(
-                    DefaultFlag.ICE_MELT, event.getBlock().getLocation())) {
-                event.setCancelled(true);
-                return;
-            }
-            break;
+                if (wcfg.useRegions && !plugin.getGlobalRegionManager().allows(DefaultFlag.ICE_MELT, event.getBlock().getLocation())) {
+                    event.setCancelled(true);
+                    return;
+                }
+                break;
 
-        case BlockID.SNOW:
-            if (wcfg.disableSnowMelting) {
-                event.setCancelled(true);
-                return;
-            }
+            case BlockID.SNOW:
+                if (wcfg.disableSnowMelting) {
+                    event.setCancelled(true);
+                    return;
+                }
 
-            if (wcfg.useRegions && !plugin.getGlobalRegionManager().allows(
-                    DefaultFlag.SNOW_MELT, event.getBlock().getLocation())) {
-                event.setCancelled(true);
-                return;
-            }
-            break;
+                if (wcfg.useRegions && !plugin.getGlobalRegionManager().allows(DefaultFlag.SNOW_MELT, event.getBlock().getLocation())) {
+                    event.setCancelled(true);
+                    return;
+                }
+                break;
 
-        case BlockID.SOIL:
-            if (wcfg.disableSoilDehydration) {
-                event.setCancelled(true);
-                return;
-            }
-            if (wcfg.useRegions && !plugin.getGlobalRegionManager().allows(
-                    DefaultFlag.SOIL_DRY, event.getBlock().getLocation())) {
-                event.setCancelled(true);
-                return;
-            }
-            break;
+            case BlockID.SOIL:
+                if (wcfg.disableSoilDehydration) {
+                    event.setCancelled(true);
+                    return;
+                }
+                if (wcfg.useRegions && !plugin.getGlobalRegionManager().allows(DefaultFlag.SOIL_DRY, event.getBlock().getLocation())) {
+                    event.setCancelled(true);
+                    return;
+                }
+                break;
         }
 
     }

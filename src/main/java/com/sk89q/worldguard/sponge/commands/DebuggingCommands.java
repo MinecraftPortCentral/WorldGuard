@@ -19,6 +19,8 @@
 
 package com.sk89q.worldguard.sponge.commands;
 
+import com.sk89q.worldedit.event.platform.Interaction;
+
 import com.sk89q.minecraft.util.commands.Command;
 import com.sk89q.minecraft.util.commands.CommandContext;
 import com.sk89q.minecraft.util.commands.CommandException;
@@ -61,7 +63,7 @@ public class DebuggingCommands {
         Player target = plugin.matchSinglePlayer(sender, args.getString(0));
         Location block = traceBlock(sender, target, args.hasFlag('t'));
         sender.sendMessage(Texts.of(TextColors.AQUA, "Testing BLOCK BREAK at ", TextColors.DARK_AQUA, block));
-        LoggingBlockBreakEvent event = new LoggingBlockBreakEvent(block, block.getBlockSnapshot(), target);
+        LoggingBlockBreakEvent event = new LoggingBlockBreakEvent(block, block.createSnapshot(), target);
         testEvent(sender, target, event);
     }
 
@@ -72,7 +74,7 @@ public class DebuggingCommands {
         Player target = plugin.matchSinglePlayer(sender, args.getString(0));
         Location block = traceBlock(sender, target, args.hasFlag('t'));
         sender.sendMessage(Texts.of(TextColors.AQUA, "Testing BLOCK PLACE at ", TextColors.DARK_AQUA, block));
-        LoggingBlockPlaceEvent event = new LoggingBlockPlaceEvent(block, Direction.UP, block.getBlockSnapshot(), target);
+        LoggingBlockPlaceEvent event = new LoggingBlockPlaceEvent(block, Direction.UP, block.createSnapshot(), target);
         testEvent(sender, target, event);
     }
 
@@ -82,7 +84,7 @@ public class DebuggingCommands {
         Player target = plugin.matchSinglePlayer(sender, args.getString(0));
         Location block = traceBlock(sender, target, args.hasFlag('t'));
         sender.sendMessage(Texts.of(TextColors.AQUA, "Testing BLOCK INTERACT at ", TextColors.DARK_AQUA, block));
-        LoggingPlayerInteractEvent event = new LoggingPlayerInteractEvent(target, EntityInteractionTypes.USE, block, Direction.UP);
+        LoggingPlayerInteractEvent event = new LoggingPlayerInteractEvent(target, block, Direction.UP);
         testEvent(sender, target, event);
     }
 

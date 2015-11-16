@@ -24,6 +24,7 @@ import com.sk89q.worldguard.protection.flags.DefaultFlag;
 import com.sk89q.worldguard.sponge.WorldConfiguration;
 import com.sk89q.worldguard.sponge.WorldGuardPlugin;
 import com.sk89q.worldguard.sponge.internal.TargetMatcherSet;
+import org.spongepowered.api.entity.Entity;
 import org.spongepowered.api.entity.weather.Lightning;
 import org.spongepowered.api.event.Listener;
 import org.spongepowered.api.event.entity.SpawnEntityEvent;
@@ -45,33 +46,35 @@ public class WorldGuardWeatherListener extends AbstractListener {
 
     @Listener
     public void onWeatherChange(ChangeWorldWeatherEvent event) {
-        WorldConfiguration wcfg = getWorldConfig((World) event.getWorld());
+        WorldConfiguration wcfg = getWorldConfig((World) event.getTargetWorld());
 
-        if (event.getResultingWeather().equals(Weathers.RAIN)) {
+        if (event.getWeather().equals(Weathers.RAIN)) {
             if (wcfg.disableWeather) {
-                event.setResultingWeather(event.getInitialWeather());
+                event.setWeather(event.getInitialWeather());
             }
         } else {
             if (!wcfg.disableWeather && wcfg.alwaysRaining) {
-                event.setResultingWeather(event.getInitialWeather());
+                event.setWeather(event.getInitialWeather());
             }
         }
     }
 
     @Listener
     public void onLightningStrike(SpawnEntityEvent event) {
-        if (!(event.getTargetEntity() instanceof Lightning)) return;
-        WorldConfiguration wcfg = getWorldConfig(event.getTargetEntity().getWorld());
+        for (Entity entity : event.getEntities()) {
+            if (!(entity instanceof Lightning))
+                return;
+            WorldConfiguration wcfg = getWorldConfig(entity.getWorld());
 
-        final TargetMatcherSet matcherSet = wcfg.disallowedLightningBlocks;
+            final TargetMatcherSet matcherSet = wcfg.disallowedLightningBlocks;
 
+            if (wcfg.useRegions) {
+                Location<World> loc = entity.getLocation();
+                ApplicableRegionSet set = getPlugin().getRegionContainer().createQuery().getApplicableRegions(loc);
 
-        if (wcfg.useRegions) {
-            Location<World> loc = event.getTargetEntity().getLocation();
-            ApplicableRegionSet set = getPlugin().getRegionContainer().createQuery().getApplicableRegions(loc);
-
-            if (!set.testState(null, DefaultFlag.LIGHTNING)) {
-                event.setCancelled(true);
+                if (!set.testState(null, DefaultFlag.LIGHTNING)) {
+                    event.setCancelled(true);
+                }
             }
         }
     }

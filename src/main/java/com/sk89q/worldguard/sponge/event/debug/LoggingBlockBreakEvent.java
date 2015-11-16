@@ -19,14 +19,13 @@
 
 package com.sk89q.worldguard.sponge.event.debug;
 
-import com.google.common.base.Predicate;
 import com.sk89q.worldguard.sponge.WorldGuardPlugin;
 import org.spongepowered.api.Game;
 import org.spongepowered.api.block.BlockSnapshot;
 import org.spongepowered.api.block.BlockState;
-import org.spongepowered.api.block.BlockTransaction;
+import org.spongepowered.api.data.Transaction;
 import org.spongepowered.api.entity.living.player.Player;
-import org.spongepowered.api.event.block.BreakBlockEvent;
+import org.spongepowered.api.event.block.ChangeBlockEvent;
 import org.spongepowered.api.event.cause.Cause;
 import org.spongepowered.api.event.impl.AbstractEvent;
 import org.spongepowered.api.world.Location;
@@ -34,7 +33,7 @@ import org.spongepowered.api.world.World;
 
 import java.util.List;
 
-public class LoggingBlockBreakEvent extends AbstractEvent implements BreakBlockEvent, CancelLogging {
+public class LoggingBlockBreakEvent extends AbstractEvent implements ChangeBlockEvent.Break, CancelLogging {
 
     private final CancelLogger logger = new CancelLogger();
 
@@ -79,17 +78,7 @@ public class LoggingBlockBreakEvent extends AbstractEvent implements BreakBlockE
     }
 
     @Override
-    public List<BlockTransaction> getTransactions() {
-        return null;
-    }
-
-    @Override
-    public List<BlockTransaction> filter(Predicate<Location<World>> predicate) {
-        return null;
-    }
-
-    @Override
-    public List<BlockTransaction> filterAll() {
+    public List<Transaction<BlockSnapshot>> getTransactions() {
         return null;
     }
 

@@ -25,8 +25,9 @@ import org.spongepowered.api.event.Event;
 import org.spongepowered.api.world.Location;
 import org.spongepowered.api.world.World;
 
-import javax.annotation.Nullable;
 import java.util.List;
+
+import javax.annotation.Nullable;
 
 /**
  * This event is an internal event. We do not recommend handling or throwing
@@ -36,7 +37,7 @@ import java.util.List;
  */
 public class UseBlockEvent extends AbstractBlockEvent {
 
-    public UseBlockEvent(@Nullable Event originalEvent, Cause cause, World world, List<Location> blocks, BlockType effectiveMaterial) {
+    public UseBlockEvent(@Nullable Event originalEvent, Cause cause, World world, List<Location<World>> blocks, BlockType effectiveMaterial) {
         super(originalEvent, cause, world, blocks, effectiveMaterial);
     }
 

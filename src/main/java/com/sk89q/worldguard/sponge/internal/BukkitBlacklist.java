@@ -19,6 +19,8 @@
 
 package com.sk89q.worldguard.sponge.internal;
 
+import org.spongepowered.api.text.Text;
+
 import com.sk89q.worldguard.blacklist.Blacklist;
 import com.sk89q.worldguard.sponge.WorldGuardPlugin;
 
@@ -32,7 +34,7 @@ public class BukkitBlacklist extends Blacklist {
     }
     
     @Override
-    public void broadcastNotification(String msg) {
+    public void broadcastNotification(Text msg) {
         plugin.broadcastNotification(msg);
     }
 

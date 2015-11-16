@@ -19,9 +19,9 @@
 
 package com.sk89q.worldguard.sponge.listener;
 
+import static com.sk89q.worldguard.protection.flags.DefaultFlag.OTHER_EXPLOSION;
+
 import com.flowpowered.math.vector.Vector3d;
-import com.google.common.base.Function;
-import java.util.Optional;
 import com.google.common.base.Predicate;
 import com.sk89q.worldguard.LocalPlayer;
 import com.sk89q.worldguard.protection.ApplicableRegionSet;
@@ -35,8 +35,9 @@ import com.sk89q.worldguard.sponge.WorldGuardPlugin;
 import com.sk89q.worldguard.sponge.util.Causes;
 import com.sk89q.worldguard.sponge.util.Entities;
 import com.sk89q.worldguard.sponge.util.Materials;
-import org.spongepowered.api.block.BlockTransaction;
+import org.spongepowered.api.block.BlockSnapshot;
 import org.spongepowered.api.block.BlockTypes;
+import org.spongepowered.api.data.Transaction;
 import org.spongepowered.api.data.key.Keys;
 import org.spongepowered.api.data.manipulator.mutable.entity.TameableData;
 import org.spongepowered.api.entity.Entity;
@@ -74,16 +75,16 @@ import org.spongepowered.api.event.entity.HealEntityEvent;
 import org.spongepowered.api.event.entity.InteractEntityEvent;
 import org.spongepowered.api.event.entity.SpawnEntityEvent;
 import org.spongepowered.api.event.world.ConstructPortalEvent;
-import org.spongepowered.api.event.world.WorldExplosionEvent;
+import org.spongepowered.api.event.world.ExplosionEvent;
 import org.spongepowered.api.item.ItemTypes;
 import org.spongepowered.api.item.inventory.ItemStack;
 import org.spongepowered.api.util.Tuple;
 import org.spongepowered.api.world.Location;
 import org.spongepowered.api.world.World;
 
+import java.util.Optional;
 import java.util.Set;
-
-import static com.sk89q.worldguard.protection.flags.DefaultFlag.OTHER_EXPLOSION;
+import java.util.function.Function;
 
 public class WorldGuardEntityListener extends AbstractListener {
 
@@ -97,14 +98,16 @@ public class WorldGuardEntityListener extends AbstractListener {
     }
 
     @Listener
-    public void onEntityInteract(InteractBlockEvent.Use.SourceEntity event) {
-        Entity entity = event.getSourceEntity();
-        Location<World> block = event.getTargetLocation();
+    public void onEntityInteract(InteractBlockEvent event) {
+        if (event.getCause().first(Player.class).isPresent()) {
+            Entity entity = event.getCause().first(Entity.class).get();
+            Location<World> block = event.getTargetBlock().getLocation().get();
 
-        if (block.getBlockType().equals(BlockTypes.FARMLAND)) {
-            if (!(entity instanceof Player)) {
-                if (getWorldConfig(entity.getWorld()).disableCreatureCropTrampling) {
-                    event.setCancelled(true);
+            if (block.getBlockType().equals(BlockTypes.FARMLAND)) {
+                if (!(entity instanceof Player)) {
+                    if (getWorldConfig(entity.getWorld()).disableCreatureCropTrampling) {
+                        event.setCancelled(true);
+                    }
                 }
             }
         }
@@ -136,7 +139,7 @@ public class WorldGuardEntityListener extends AbstractListener {
 
             if (wcfg.disableLavaDamage && Causes.isLava(type)) {
                 event.setCancelled(true);
-                //player.setFireTicks(0);
+                // player.setFireTicks(0);
                 return;
             }
 
@@ -157,9 +160,8 @@ public class WorldGuardEntityListener extends AbstractListener {
             }
 
             if (Causes.isExplosion(type)
-                    && (wcfg.disableExplosionDamage || wcfg.blockOtherExplosions
-                    || (wcfg.explosionFlagCancellation
-                    && !getPlugin().getRegionContainer().createQuery().testState(player.getLocation(), (Player) null, OTHER_EXPLOSION)))) {
+                    && (wcfg.disableExplosionDamage || wcfg.blockOtherExplosions || (wcfg.explosionFlagCancellation && !getPlugin()
+                            .getRegionContainer().createQuery().testState(player.getLocation(), (Player) null, OTHER_EXPLOSION)))) {
                 event.setCancelled(true);
                 return;
             }
@@ -201,7 +203,8 @@ public class WorldGuardEntityListener extends AbstractListener {
 
             if (attacker != null) {
                 if (attacker instanceof PrimedTNT || attacker instanceof MinecartTNT) {
-                    // The check for explosion damage should be handled already... But... What ever...
+                    // The check for explosion damage should be handled
+                    // already... But... What ever...
                     if (wcfg.blockTNTExplosions) {
                         event.setCancelled(true);
                         return;
@@ -300,10 +303,10 @@ public class WorldGuardEntityListener extends AbstractListener {
     @Listener
     public void onEntityDamage(DamageEntityEvent event) {
 
-        if (event.getCause().getFirst(Entity.class).isPresent()) {
+        if (event.getCause().first(Entity.class).isPresent()) {
             this.onEntityDamageByEntity(event);
             return;
-        } else if (event.getCause().getFirst(Location.class).isPresent()) {
+        } else if (event.getCause().first(Location.class).isPresent()) {
             this.onEntityDamageByBlock(event);
             return;
         }
@@ -344,10 +347,8 @@ public class WorldGuardEntityListener extends AbstractListener {
                     cancel = true;
                 }
                 Optional<ItemStack> helmet = player.getHelmet();
-                if (wcfg.pumpkinScuba
-                        && helmet.isPresent()
-                        && (helmet.get().getItem().equals(ItemTypes.PUMPKIN)
-                            || helmet.get().getItem().equals(ItemTypes.LIT_PUMPKIN))) {
+                if (wcfg.pumpkinScuba && helmet.isPresent()
+                        && (helmet.get().getItem().equals(ItemTypes.PUMPKIN) || helmet.get().getItem().equals(ItemTypes.LIT_PUMPKIN))) {
                     cancel = true;
                 }
                 if (wcfg.disableDrowningDamage) {
@@ -386,139 +387,150 @@ public class WorldGuardEntityListener extends AbstractListener {
      * Called on entity explode.
      */
     @Listener
-    public void onEntityExplode(WorldExplosionEvent.Detonate event) {
-        ConfigurationManager cfg = getPlugin().getGlobalStateManager();
-        Vector3d loc = event.getExplosion().getOrigin();
-        World world = event.getSourceWorld();
-        WorldConfiguration wcfg = cfg.get(world);
-        Optional<Explosive> ent = event.getExplosion().getSourceExplosive();
+    public void onEntityExplode(ExplosionEvent.Detonate event) {
+        if (event.getCause().first(Entity.class).isPresent()) {
+            Entity ent = event.getCause().first(Entity.class).get();
+            ConfigurationManager cfg = getPlugin().getGlobalStateManager();
+            Vector3d loc = event.getExplosion().getOrigin();
+            World world = event.getTargetWorld();
+            WorldConfiguration wcfg = cfg.get(world);
+            Optional<Explosive> exp = event.getExplosion().getSourceExplosive();
 
-        if (cfg.activityHaltToggle) {
-            if (ent.isPresent()) {
-                ent.get().remove();
-            }
-            event.filter(new InvalidateAllPredicate());
-            return;
-        }
-
-        if (ent instanceof Creeper) {
-            if (wcfg.blockCreeperExplosions) {
-                event.setCancelled(true);
-                return;
-            }
-            if (wcfg.blockCreeperBlockDamage) {
-                event.getTransactions().clear();
-                return;
-            }
-        } else if (ent instanceof EnderDragon) {
-            if (wcfg.blockEnderDragonBlockDamage) {
-                event.filter(new InvalidateAllPredicate());
-                return;
-            }
-        } else if (ent instanceof PrimedTNT || ent instanceof MinecartTNT) {
-            if (wcfg.blockTNTExplosions) {
-                event.setCancelled(true);
-                return;
-            }
-            if (wcfg.blockTNTBlockDamage) {
-                event.filter(new InvalidateAllPredicate());
-                return;
-            }
-        } else if (ent instanceof Fireball) {
-            if (wcfg.blockFireballExplosions) {
-                event.setCancelled(true);
-                return;
-            }
-            if (wcfg.blockFireballBlockDamage) {
-                event.filter(new InvalidateAllPredicate());
-                return;
-            }
-            // allow wither skull blocking since there is no dedicated flag atm
-            if (wcfg.useRegions) {
-                RegionManager mgr = getPlugin().getRegionContainer().get(world);
-
-                for (BlockTransaction block : event.getTransactions()) {
-                    // todo nullsafe?
-                    Optional<Location<World>> filterLoc = block.getOriginal().getLocation();
-                    if (!filterLoc.isPresent()) continue;
-                    if (!getPlugin().getRegionContainer().createQuery().getApplicableRegions(filterLoc.get()).testState(null, DefaultFlag.GHAST_FIREBALL)) {
-                        event.filter(new InvalidateAllPredicate());
-                        if (wcfg.explosionFlagCancellation) event.setCancelled(true);
-                        return;
-                    }
+            if (cfg.activityHaltToggle) {
+                if (exp.isPresent()) {
+                    exp.get().remove();
                 }
-            }
-        } else if (ent instanceof WitherSkull) {
-            if (wcfg.blockWitherSkullExplosions) {
-                event.setCancelled(true);
-                return;
-            }
-            if (wcfg.blockWitherSkullBlockDamage) {
                 event.filter(new InvalidateAllPredicate());
                 return;
             }
-        } else if (ent instanceof Wither) {
-            if (wcfg.blockWitherExplosions) {
-                event.setCancelled(true);
-                return;
-            }
-            if (wcfg.blockWitherBlockDamage) {
-                event.filter(new InvalidateAllPredicate());
-                return;
-            }
-        } else {
-            // unhandled entity
-            if (wcfg.blockOtherExplosions) {
-                event.setCancelled(true);
-                return;
-            }
-            if (wcfg.useRegions) {
-                RegionManager mgr = getPlugin().getRegionContainer().get(world);
 
-                for (BlockTransaction block : event.getTransactions()) {
-                    // todo nullsafe?
-                    Optional<Location<World>> filterLoc = block.getOriginal().getLocation();
-                    if (!filterLoc.isPresent()) continue;
-                    if (!getPlugin().getRegionContainer().createQuery().getApplicableRegions(filterLoc.get()).testState(null, DefaultFlag.OTHER_EXPLOSION)) {
-                        event.filter(new InvalidateAllPredicate());
-                        if (wcfg.explosionFlagCancellation) event.setCancelled(true);
-                        return;
-                    }
+            if (ent instanceof Creeper) {
+                if (wcfg.blockCreeperExplosions) {
+                    event.setCancelled(true);
+                    return;
                 }
-            }
-        }
-
-
-        if (wcfg.signChestProtection) {
-            for (BlockTransaction block : event.getTransactions()) {
-                // todo nullsafe?
-                Optional<Location<World>> filterLoc = block.getOriginal().getLocation();
-                if (!filterLoc.isPresent()) continue;
-                if (wcfg.isChestProtected(filterLoc.get())) {
+                if (wcfg.blockCreeperBlockDamage) {
+                    event.getTransactions().clear();
+                    return;
+                }
+            } else if (ent instanceof EnderDragon) {
+                if (wcfg.blockEnderDragonBlockDamage) {
                     event.filter(new InvalidateAllPredicate());
                     return;
                 }
+            } else if (ent instanceof PrimedTNT || ent instanceof MinecartTNT) {
+                if (wcfg.blockTNTExplosions) {
+                    event.setCancelled(true);
+                    return;
+                }
+                if (wcfg.blockTNTBlockDamage) {
+                    event.filter(new InvalidateAllPredicate());
+                    return;
+                }
+            } else if (ent instanceof Fireball) {
+                if (wcfg.blockFireballExplosions) {
+                    event.setCancelled(true);
+                    return;
+                }
+                if (wcfg.blockFireballBlockDamage) {
+                    event.filter(new InvalidateAllPredicate());
+                    return;
+                }
+                // allow wither skull blocking since there is no dedicated flag
+                // atm
+                if (wcfg.useRegions) {
+                    RegionManager mgr = getPlugin().getRegionContainer().get(world);
+
+                    for (Transaction<BlockSnapshot> block : event.getTransactions()) {
+                        // todo nullsafe?
+                        Optional<Location<World>> filterLoc = block.getOriginal().getLocation();
+                        if (!filterLoc.isPresent())
+                            continue;
+                        if (!getPlugin().getRegionContainer().createQuery().getApplicableRegions(filterLoc.get())
+                                .testState(null, DefaultFlag.GHAST_FIREBALL)) {
+                            event.filter(new InvalidateAllPredicate());
+                            if (wcfg.explosionFlagCancellation)
+                                event.setCancelled(true);
+                            return;
+                        }
+                    }
+                }
+            } else if (ent instanceof WitherSkull) {
+                if (wcfg.blockWitherSkullExplosions) {
+                    event.setCancelled(true);
+                    return;
+                }
+                if (wcfg.blockWitherSkullBlockDamage) {
+                    event.filter(new InvalidateAllPredicate());
+                    return;
+                }
+            } else if (ent instanceof Wither) {
+                if (wcfg.blockWitherExplosions) {
+                    event.setCancelled(true);
+                    return;
+                }
+                if (wcfg.blockWitherBlockDamage) {
+                    event.filter(new InvalidateAllPredicate());
+                    return;
+                }
+            } else {
+                // unhandled entity
+                if (wcfg.blockOtherExplosions) {
+                    event.setCancelled(true);
+                    return;
+                }
+                if (wcfg.useRegions) {
+                    RegionManager mgr = getPlugin().getRegionContainer().get(world);
+
+                    for (Transaction<BlockSnapshot> block : event.getTransactions()) {
+                        // todo nullsafe?
+                        Optional<Location<World>> filterLoc = block.getOriginal().getLocation();
+                        if (!filterLoc.isPresent())
+                            continue;
+                        if (!getPlugin().getRegionContainer().createQuery().getApplicableRegions(filterLoc.get())
+                                .testState(null, DefaultFlag.OTHER_EXPLOSION)) {
+                            event.filter(new InvalidateAllPredicate());
+                            if (wcfg.explosionFlagCancellation)
+                                event.setCancelled(true);
+                            return;
+                        }
+                    }
+                }
+            }
+
+            if (wcfg.signChestProtection) {
+                for (Transaction<BlockSnapshot> block : event.getTransactions()) {
+                    // todo nullsafe?
+                    Optional<Location<World>> filterLoc = block.getOriginal().getLocation();
+                    if (!filterLoc.isPresent())
+                        continue;
+                    if (wcfg.isChestProtected(filterLoc.get())) {
+                        event.filter(new InvalidateAllPredicate());
+                        return;
+                    }
+                }
             }
         }
-
     }
 
     /*
      * Called on explosion prime
      */
     @Listener
-    public void onExplosionPrime(WorldExplosionEvent.Pre event) {
+    public void onExplosionPrime(ExplosionEvent.Pre event) {
         ConfigurationManager cfg = getPlugin().getGlobalStateManager();
-        WorldConfiguration wcfg = cfg.get(event.getSourceWorld());
-        Explosive ent = event.getExplosion().getSourceExplosive().orNull();
+        WorldConfiguration wcfg = cfg.get(event.getTargetWorld());
+        Explosive ent = event.getExplosion().getSourceExplosive().orElse(null);
 
         if (cfg.activityHaltToggle) {
             event.setCancelled(true);
-            if (ent != null) ent.remove();
+            if (ent != null)
+                ent.remove();
             return;
         }
 
-        if (ent == null) return;
+        if (ent == null)
+            return;
 
         if (ent.getType().equals(EntityTypes.WITHER)) {
             if (wcfg.blockWitherExplosions) {
@@ -540,8 +552,7 @@ public class WorldGuardEntityListener extends AbstractListener {
                 event.setCancelled(true);
                 return;
             }
-        } else if (ent.getType().equals(EntityTypes.PRIMED_TNT)
-                || ent.getType().equals(EntityTypes.TNT_MINECART)) {
+        } else if (ent.getType().equals(EntityTypes.PRIMED_TNT) || ent.getType().equals(EntityTypes.TNT_MINECART)) {
             if (wcfg.blockTNTExplosions) {
                 event.setCancelled(true);
                 return;
@@ -558,46 +569,47 @@ public class WorldGuardEntityListener extends AbstractListener {
             return;
         }
 
-        WorldConfiguration wcfg = cfg.get(event.getTargetEntity().getWorld());
+        for (Entity entity : event.getEntities()) {
+            WorldConfiguration wcfg = cfg.get(entity.getWorld());
 
-        // allow spawning of creatures from plugins
-        if (!wcfg.blockPluginSpawning && Causes.isPluginSpawn(event.getCause())) {
-            return;
-        }
+            // allow spawning of creatures from plugins
+            if (!wcfg.blockPluginSpawning && Causes.isPluginSpawn(event.getCause())) {
+                return;
+            }
 
-        if (wcfg.allowTamedSpawns && event.getTargetEntity().get(Keys.TAMED_OWNER).isPresent()) {
-            return;
-        }
+            if (wcfg.allowTamedSpawns && entity.get(Keys.TAMED_OWNER).isPresent()) {
+                return;
+            }
 
-        EntityType entityType = event.getTargetEntity().getType();
+            EntityType entityType = entity.getType();
 
-        if (wcfg.blockCreatureSpawn.contains(entityType)) {
-            event.setCancelled(true);
-            return;
-        }
-
-        Transform<World> eventLoc = event.getTargetEntity().getTransform();
-
-        if (wcfg.useRegions && cfg.useRegionsCreatureSpawnEvent) {
-            ApplicableRegionSet set = getPlugin().getRegionContainer().createQuery().getApplicableRegions(eventLoc.getLocation());
-
-            if (!set.testState(null, DefaultFlag.MOB_SPAWNING)) {
+            if (wcfg.blockCreatureSpawn.contains(entityType)) {
                 event.setCancelled(true);
                 return;
             }
 
-            Set<EntityType> entityTypes = set.queryValue(null, DefaultFlag.DENY_SPAWN);
-            if (entityTypes != null && entityTypes.contains(entityType)) {
+            Transform<World> eventLoc = entity.getTransform();
+
+            if (wcfg.useRegions && cfg.useRegionsCreatureSpawnEvent) {
+                ApplicableRegionSet set = getPlugin().getRegionContainer().createQuery().getApplicableRegions(eventLoc.getLocation());
+
+                if (!set.testState(null, DefaultFlag.MOB_SPAWNING)) {
+                    event.setCancelled(true);
+                    return;
+                }
+
+                Set<EntityType> entityTypes = set.queryValue(null, DefaultFlag.DENY_SPAWN);
+                if (entityTypes != null && entityTypes.contains(entityType)) {
+                    event.setCancelled(true);
+                    return;
+                }
+            }
+
+            if (wcfg.blockGroundSlimes && entityType.equals(EntityTypes.SLIME) && eventLoc.getPosition().getFloorY() >= 60
+                    && Causes.isNaturalSpawn(event.getCause())) {
                 event.setCancelled(true);
                 return;
             }
-        }
-
-        if (wcfg.blockGroundSlimes && entityType.equals(EntityTypes.SLIME)
-                && eventLoc.getPosition().getFloorY() >= 60
-                && Causes.isNaturalSpawn(event.getCause())) {
-            event.setCancelled(true);
-            return;
         }
     }
 
@@ -606,7 +618,7 @@ public class WorldGuardEntityListener extends AbstractListener {
         ConfigurationManager cfg = getPlugin().getGlobalStateManager();
         WorldConfiguration wcfg = cfg.get(event.getPortalLocation().getExtent());
 
-        if (event.getCause().getFirst(Entity.class).orNull() instanceof EnderDragon) {
+        if (event.getCause().first(Entity.class).orElse(null) instanceof EnderDragon) {
             if (wcfg.blockEnderDragonPortalCreation) {
                 event.setCancelled(true);
             }
@@ -614,15 +626,18 @@ public class WorldGuardEntityListener extends AbstractListener {
     }
 
     @Listener
-    public void onEntityStruckByLightning(InteractEntityEvent.Attack.SourceLightning event) {
-        WorldConfiguration wcfg = getWorldConfig(event.getSourceEntity().getWorld());
-        if (wcfg.disablePigZap && event.getTargetEntity() instanceof Pig) {
-            event.setCancelled(true);
-            return;
-        }
-        if (wcfg.disableCreeperPower && event.getTargetEntity() instanceof Creeper) {
-            event.setCancelled(true);
-            return;
+    public void onEntityStruckByLightning(InteractEntityEvent.Primary event) {
+        if (event.getCause().first(Lightning.class).isPresent()) {
+            Lightning lightning = event.getCause().first(Lightning.class).get();
+            WorldConfiguration wcfg = getWorldConfig(lightning.getWorld());
+            if (wcfg.disablePigZap && event.getTargetEntity() instanceof Pig) {
+                event.setCancelled(true);
+                return;
+            }
+            if (wcfg.disableCreeperPower && event.getTargetEntity() instanceof Creeper) {
+                event.setCancelled(true);
+                return;
+            }
         }
     }
 
@@ -650,40 +665,43 @@ public class WorldGuardEntityListener extends AbstractListener {
      * @param event Relevant event details
      */
     @Listener
-    public void onEntityChangeBlock(ChangeBlockEvent.SourceEntity event) {
-        Entity ent = event.getSourceEntity();
+    public void onEntityChangeBlock(ChangeBlockEvent event) {
+        if (event.getCause().first(Entity.class).isPresent()) {
+            Entity ent = event.getCause().first(Entity.class).get();
+            ConfigurationManager cfg = getPlugin().getGlobalStateManager();
+            WorldConfiguration wcfg = cfg.get(ent.getWorld());
+            if (ent instanceof Enderman) {
+                if (wcfg.disableEndermanGriefing) {
+                    event.setCancelled(true);
+                    return;
+                }
 
-        ConfigurationManager cfg = getPlugin().getGlobalStateManager();
-        WorldConfiguration wcfg = cfg.get(ent.getWorld());
-        if (ent instanceof Enderman) {
-            if (wcfg.disableEndermanGriefing) {
-                event.setCancelled(true);
-                return;
-            }
+                if (wcfg.useRegions) {
+                    final RegionQuery query = getPlugin().getRegionContainer().createQuery();
+                    event.filter(new Predicate<Location<World>>() {
 
-            if (wcfg.useRegions) {
-                final RegionQuery query = getPlugin().getRegionContainer().createQuery();
-                event.filter(new Predicate<Location<World>>() {
-                    @Override
-                    public boolean apply(Location<World> loc) {
-                         return query.testState(loc, (RegionAssociable) null, DefaultFlag.ENDER_BUILD);
-                    }
-                });
-            }
-        } else if (ent.getType().equals(EntityTypes.WITHER)) {
-            if (wcfg.blockWitherBlockDamage || wcfg.blockWitherExplosions) {
-                event.setCancelled(true);
-                return;
-            }
-        } else if (ent instanceof Zombie) {
-            if (wcfg.blockZombieDoorDestruction) {
-                event.filter(new Predicate<Location<World>>() {
-                    @Override
-                    public boolean apply(Location<World> loc) {
-                        return Materials.isWoodDoor(loc.getBlockType());
-                    }
-                });
-                return;
+                        @Override
+                        public boolean apply(Location<World> loc) {
+                            return query.testState(loc, (RegionAssociable) null, DefaultFlag.ENDER_BUILD);
+                        }
+                    });
+                }
+            } else if (ent.getType().equals(EntityTypes.WITHER)) {
+                if (wcfg.blockWitherBlockDamage || wcfg.blockWitherExplosions) {
+                    event.setCancelled(true);
+                    return;
+                }
+            } else if (ent instanceof Zombie) {
+                if (wcfg.blockZombieDoorDestruction) {
+                    event.filter(new Predicate<Location<World>>() {
+
+                        @Override
+                        public boolean apply(Location<World> loc) {
+                            return Materials.isWoodDoor(loc.getBlockType());
+                        }
+                    });
+                    return;
+                }
             }
         }
     }
@@ -691,6 +709,7 @@ public class WorldGuardEntityListener extends AbstractListener {
     /**
      * Checks regions and config settings to protect items from being knocked
      * out of item frames.
+     * 
      * @param attacker attacking entity
      * @param defender item frame being damaged
      * @return true if the event should be cancelled
@@ -700,8 +719,8 @@ public class WorldGuardEntityListener extends AbstractListener {
         WorldConfiguration wcfg = getWorldConfig(world);
         if (wcfg.useRegions) {
             if (!(attacker instanceof Player)) {
-                if (!getPlugin().getRegionContainer().createQuery().testState(
-                        defender.getLocation(), (RegionAssociable) null, DefaultFlag.ENTITY_ITEM_FRAME_DESTROY)) {
+                if (!getPlugin().getRegionContainer().createQuery()
+                        .testState(defender.getLocation(), (RegionAssociable) null, DefaultFlag.ENTITY_ITEM_FRAME_DESTROY)) {
                     return true;
                 }
             }
@@ -713,6 +732,7 @@ public class WorldGuardEntityListener extends AbstractListener {
     }
 
     private static class InvalidateAllPredicate implements Predicate<Location<World>> {
+
         @Override
         public boolean apply(Location<World> location) {
             return false;

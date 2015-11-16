@@ -19,19 +19,18 @@
 
 package com.sk89q.worldguard.protection.events;
 
-import org.bukkit.entity.Player;
-import org.bukkit.event.Cancellable;
-import org.bukkit.event.Event;
-import org.bukkit.event.HandlerList;
+import org.spongepowered.api.entity.living.player.Player;
+import org.spongepowered.api.event.Cancellable;
+import org.spongepowered.api.event.Event;
+import org.spongepowered.api.event.impl.AbstractEvent;
 
 /**
- * This event is fired when PVP is disallowed between players due to a "pvp deny" flag.
- * Cancelling this event allows the PVP in spite of this.
+ * This event is fired when PVP is disallowed between players due to a
+ * "pvp deny" flag. Cancelling this event allows the PVP in spite of this.
  * 
  * @author Score_Under
  */
-public class DisallowedPVPEvent extends Event implements Cancellable {
-    private static final HandlerList handlers = new HandlerList();
+public class DisallowedPVPEvent extends AbstractEvent implements Cancellable {
 
     private boolean cancelled = false;
     private final Player attacker;
@@ -68,14 +67,5 @@ public class DisallowedPVPEvent extends Event implements Cancellable {
 
     public Event getCause() {
         return event;
-    }
-
-    @Override
-    public HandlerList getHandlers() {
-        return handlers;
-    }
-
-    public static HandlerList getHandlerList() {
-        return handlers;
     }
 }

@@ -19,10 +19,10 @@
 
 package com.sk89q.worldguard.sponge.event.player;
 
-import org.spongepowered.api.entity.living.player.Player;
-import org.spongepowered.api.event.AbstractEvent;
-
 import static com.google.common.base.Preconditions.checkNotNull;
+
+import org.spongepowered.api.entity.living.player.Player;
+import org.spongepowered.api.event.impl.AbstractEvent;
 
 /**
  * This event is an internal event. We do not recommend handling or throwing

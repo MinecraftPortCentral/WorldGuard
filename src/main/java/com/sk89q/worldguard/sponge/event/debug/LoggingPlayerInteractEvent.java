@@ -20,32 +20,30 @@
 package com.sk89q.worldguard.sponge.event.debug;
 
 import com.flowpowered.math.vector.Vector3d;
-import java.util.Optional;
 import com.sk89q.worldguard.sponge.WorldGuardPlugin;
 import org.spongepowered.api.Game;
-import org.spongepowered.api.entity.EntityInteractionType;
 import org.spongepowered.api.entity.living.player.Player;
-import org.spongepowered.api.event.AbstractEvent;
-import org.spongepowered.api.event.entity.player.PlayerInteractEvent;
+import org.spongepowered.api.event.action.InteractEvent;
+import org.spongepowered.api.event.cause.Cause;
+import org.spongepowered.api.event.impl.AbstractEvent;
 import org.spongepowered.api.util.Direction;
 import org.spongepowered.api.world.Location;
 
 import java.util.List;
+import java.util.Optional;
 
-public class LoggingPlayerInteractEvent extends AbstractEvent implements PlayerInteractEvent, CancelLogging {
+public class LoggingPlayerInteractEvent extends AbstractEvent implements InteractEvent, CancelLogging {
 
     private final CancelLogger logger = new CancelLogger();
 
-    public LoggingPlayerInteractEvent(Player who, EntityInteractionType action, Location clickedBlock, Direction clickedFace) {
+    public LoggingPlayerInteractEvent(Player who, Location clickedBlock, Direction clickedFace) {
         this.player = who;
-        this.action = action;
         this.clicked = clickedBlock;
         this.face = clickedFace;
         this.game = WorldGuardPlugin.inst().getGame();
     }
 
     private boolean cancelled = false;
-    private EntityInteractionType action;
     private Location clicked;
     private Direction face;
     private Player player;
@@ -68,27 +66,17 @@ public class LoggingPlayerInteractEvent extends AbstractEvent implements PlayerI
     }
 
     @Override
-    public EntityInteractionType getInteractionType() {
-        return action;
-    }
-
-    @Override
-    public Optional<Vector3d> getClickedPosition() {
-        return Optional.of(clicked.getPosition());
-    }
-
-    @Override
-    public Player getEntity() {
-        return player;
-    }
-
-    @Override
-    public Player getUser() {
-        return player;
-    }
-
-    @Override
     public Game getGame() {
         return game;
+    }
+
+    @Override
+    public Cause getCause() {
+        return Cause.of(player);
+    }
+
+    @Override
+    public Optional<Vector3d> getInteractionPoint() {
+        return Optional.of(clicked.getPosition());
     }
 }

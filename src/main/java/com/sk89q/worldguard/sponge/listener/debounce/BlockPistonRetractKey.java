@@ -19,13 +19,12 @@
 
 package com.sk89q.worldguard.sponge.listener.debounce;
 
-import org.bukkit.block.Block;
-import org.bukkit.event.block.BlockPistonRetractEvent;
+import org.spongepowered.api.block.BlockSnapshot;
 
 public class BlockPistonRetractKey {
 
-    private final Block piston;
-    private final Block retract;
+    private final BlockSnapshot piston;
+    private final BlockSnapshot retract;
 
     public BlockPistonRetractKey(BlockPistonRetractEvent event) {
         piston = event.getBlock();

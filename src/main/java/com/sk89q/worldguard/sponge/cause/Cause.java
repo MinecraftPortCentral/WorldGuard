@@ -239,9 +239,9 @@ public final class Cause {
 
                     if (o instanceof Entity) {
                         Entity ent = ((Entity) o);
-                        PassengerData vd = ent.get(PassengerData.class).orNull();
-                        TargetLivingData tld = ent.get(TargetLivingData.class).orNull();
-                        TameableData td = ent.get(TameableData.class).orNull();
+                        PassengerData vd = ent.get(PassengerData.class).orElse(null);
+                        TargetLivingData tld = ent.get(TargetLivingData.class).orElse(null);
+                        TameableData td = ent.get(TameableData.class).orElse(null);
                         if (o instanceof PrimedTNT) {
                             addAll(((PrimedTNT) o).getDetonator().isPresent() ? ((PrimedTNT) o).getDetonator().get() : null);
                         } else if (o instanceof Projectile) {

@@ -19,18 +19,20 @@
 
 package com.sk89q.worldguard.sponge.listener;
 
-import com.sk89q.worldguard.sponge.BukkitUtil;
 import com.sk89q.worldguard.sponge.ConfigurationManager;
 import com.sk89q.worldguard.sponge.WorldConfiguration;
 import com.sk89q.worldguard.sponge.WorldGuardPlugin;
 import com.sk89q.worldguard.sponge.event.inventory.UseItemEvent;
-import org.bukkit.ChatColor;
-import org.bukkit.Material;
-import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.potion.Potion;
-import org.bukkit.potion.PotionEffect;
+import org.spongepowered.api.data.key.Keys;
+import org.spongepowered.api.data.manipulator.mutable.PotionEffectData;
+import org.spongepowered.api.data.manipulator.mutable.item.SplashPotionData;
+import org.spongepowered.api.entity.living.player.Player;
+import org.spongepowered.api.event.Listener;
+import org.spongepowered.api.item.ItemTypes;
+import org.spongepowered.api.item.inventory.ItemStack;
+import org.spongepowered.api.potion.PotionEffect;
+import org.spongepowered.api.text.Texts;
+import org.spongepowered.api.text.format.TextColors;
 
 /**
  * Handles blocked potions.
@@ -46,24 +48,24 @@ public class BlockedPotionsListener extends AbstractListener {
         super(plugin);
     }
 
-    @EventHandler
+    @Listener
     public void onItemInteract(UseItemEvent event) {
         ConfigurationManager cfg = getPlugin().getGlobalStateManager();
         WorldConfiguration wcfg = cfg.get(event.getWorld());
         ItemStack item = event.getItemStack();
 
-        // We only care about portions
-        if (item.getType() != Material.POTION || BukkitUtil.isWaterPotion(item)) {
+        // We only care about potions
+        if (item.getItem() != ItemTypes.POTION) {
             return;
         }
 
         if (!wcfg.blockPotions.isEmpty()) {
             PotionEffect blockedEffect = null;
-
-            Potion potion = Potion.fromDamage(BukkitUtil.getPotionEffectBits(item));
+            
+            PotionEffectData data = item.get(PotionEffectData.class).get();
 
             // Find the first blocked effect
-            for (PotionEffect effect : potion.getEffects()) {
+            for (PotionEffect effect : data.get(Keys.POTION_EFFECTS).get()) {
                 if (wcfg.blockPotions.contains(effect.getType())) {
                     blockedEffect = effect;
                     break;
@@ -75,16 +77,16 @@ public class BlockedPotionsListener extends AbstractListener {
 
                 if (player != null) {
                     if (getPlugin().hasPermission(player, "worldguard.override.potions")) {
-                        if (potion.isSplash() && wcfg.blockPotionsAlways) {
-                            player.sendMessage(ChatColor.RED + "Sorry, potions with " +
+                        if (item.get(SplashPotionData.class).isPresent() && wcfg.blockPotionsAlways) {
+                            player.sendMessage(Texts.of(TextColors.RED + "Sorry, potions with " +
                                     blockedEffect.getType().getName() + " can't be thrown, " +
                                     "even if you have a permission to bypass it, " +
-                                    "due to limitations (and because overly-reliable potion blocking is on).");
+                                    "due to limitations (and because overly-reliable potion blocking is on)."));
                             event.setCancelled(true);
                         }
                     } else {
-                        player.sendMessage(ChatColor.RED + "Sorry, potions with "
-                                + blockedEffect.getType().getName() + " are presently disabled.");
+                        player.sendMessage(Texts.of(TextColors.RED + "Sorry, potions with "
+                                + blockedEffect.getType().getName() + " are presently disabled."));
                         event.setCancelled(true);
                     }
                 } else {

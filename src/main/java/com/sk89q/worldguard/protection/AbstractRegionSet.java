@@ -43,14 +43,6 @@ public abstract class AbstractRegionSet implements ApplicableRegionSet {
     }
 
     @Override
-    @Deprecated
-    public boolean canConstruct(LocalPlayer player) {
-        checkNotNull(player);
-        final RegionGroup flag = getFlag(DefaultFlag.CONSTRUCT, player);
-        return RegionGroupFlag.isMember(this, flag, player);
-    }
-
-    @Override
     public boolean testState(@Nullable RegionAssociable subject, StateFlag... flags) {
         return test(queryState(subject, flags));
     }

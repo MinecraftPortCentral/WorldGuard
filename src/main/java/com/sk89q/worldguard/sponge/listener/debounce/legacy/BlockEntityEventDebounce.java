@@ -20,11 +20,11 @@
 package com.sk89q.worldguard.sponge.listener.debounce.legacy;
 
 import com.sk89q.worldguard.sponge.listener.debounce.legacy.BlockEntityEventDebounce.Key;
-import org.bukkit.Material;
-import org.bukkit.block.Block;
-import org.bukkit.entity.Entity;
-import org.bukkit.event.Cancellable;
-import org.bukkit.event.Event;
+import org.spongepowered.api.block.BlockSnapshot;
+import org.spongepowered.api.block.BlockType;
+import org.spongepowered.api.entity.Entity;
+import org.spongepowered.api.event.Cancellable;
+import org.spongepowered.api.event.Event;
 
 public class BlockEntityEventDebounce extends AbstractEventDebounce<Key> {
 
@@ -32,18 +32,16 @@ public class BlockEntityEventDebounce extends AbstractEventDebounce<Key> {
         super(debounceTime);
     }
 
-    public <T extends Event & Cancellable> void debounce(Block block, Entity entity, Cancellable originalEvent, T firedEvent) {
+    public <T extends Event & Cancellable> void debounce(BlockSnapshot block, Entity entity, Cancellable originalEvent, T firedEvent) {
         super.debounce(new Key(block, entity), originalEvent, firedEvent);
     }
 
     protected static class Key {
-        private final Block block;
-        private final Material blockMaterial;
+        private final BlockSnapshot block;
         private final Entity entity;
 
-        private Key(Block block, Entity entity) {
+        private Key(BlockSnapshot block, Entity entity) {
             this.block = block;
-            this.blockMaterial = block.getType();
             this.entity = entity;
         }
 
@@ -55,7 +53,7 @@ public class BlockEntityEventDebounce extends AbstractEventDebounce<Key> {
             Key key = (Key) o;
 
             if (!block.equals(key.block)) return false;
-            if (blockMaterial != key.blockMaterial) return false;
+            if (block.getState().getType() != key.block.getState().getType()) return false;
             if (!entity.equals(key.entity)) return false;
 
             return true;
@@ -64,7 +62,7 @@ public class BlockEntityEventDebounce extends AbstractEventDebounce<Key> {
         @Override
         public int hashCode() {
             int result = block.hashCode();
-            result = 31 * result + blockMaterial.hashCode();
+            result = 31 * result + block.getState().getType().hashCode();
             result = 31 * result + entity.hashCode();
             return result;
         }

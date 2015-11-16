@@ -19,10 +19,13 @@
 
 package com.sk89q.worldguard.sponge.listener;
 
+import static com.sk89q.worldguard.sponge.cause.Cause.create;
+
 import com.flowpowered.math.vector.Vector3d;
-import java.util.Optional;
 import com.google.common.collect.Lists;
 import com.sk89q.worldedit.foundation.Block;
+import com.sk89q.worldguard.blacklist.action.Action;
+import com.sk89q.worldguard.protection.FlagValueCalculator.Result;
 import com.sk89q.worldguard.protection.flags.DefaultFlag;
 import com.sk89q.worldguard.sponge.WorldConfiguration;
 import com.sk89q.worldguard.sponge.WorldGuardPlugin;
@@ -49,25 +52,51 @@ import com.sk89q.worldguard.sponge.util.Items;
 import com.sk89q.worldguard.sponge.util.Materials;
 import org.spongepowered.api.block.BlockSnapshot;
 import org.spongepowered.api.block.BlockState;
-import org.spongepowered.api.block.BlockTransaction;
 import org.spongepowered.api.block.BlockTypes;
+import org.spongepowered.api.block.tileentity.carrier.Dispenser;
+import org.spongepowered.api.block.tileentity.carrier.Hopper;
+import org.spongepowered.api.data.Transaction;
+import org.spongepowered.api.data.key.Keys;
+import org.spongepowered.api.data.type.DyeColor;
 import org.spongepowered.api.effect.Viewer;
 import org.spongepowered.api.effect.particle.ParticleEffect;
+import org.spongepowered.api.effect.particle.ParticleEffect.Material;
 import org.spongepowered.api.effect.particle.ParticleTypes;
 import org.spongepowered.api.entity.Entity;
+import org.spongepowered.api.entity.EntityType;
+import org.spongepowered.api.entity.EntityTypes;
+import org.spongepowered.api.entity.FallingBlock;
+import org.spongepowered.api.entity.Item;
 import org.spongepowered.api.entity.living.player.Player;
+import org.spongepowered.api.entity.living.player.gamemode.GameModes;
+import org.spongepowered.api.entity.projectile.ThrownPotion;
+import org.spongepowered.api.entity.projectile.source.ProjectileSource;
+import org.spongepowered.api.event.Cancellable;
+import org.spongepowered.api.event.Event;
 import org.spongepowered.api.event.Listener;
+import org.spongepowered.api.event.block.ChangeBlockEvent;
+import org.spongepowered.api.event.block.InteractBlockEvent;
 import org.spongepowered.api.event.block.NotifyNeighborBlockEvent;
+import org.spongepowered.api.event.block.tileentity.ChangeSignEvent;
+import org.spongepowered.api.event.entity.DestructEntityEvent;
+import org.spongepowered.api.event.entity.InteractEntityEvent;
+import org.spongepowered.api.event.entity.TameEntityEvent;
+import org.spongepowered.api.event.item.inventory.ChangeInventoryEvent;
+import org.spongepowered.api.event.item.inventory.DropItemEvent;
+import org.spongepowered.api.event.item.inventory.UseItemStackEvent;
 import org.spongepowered.api.event.world.ExplosionEvent;
+import org.spongepowered.api.item.ItemTypes;
 import org.spongepowered.api.item.inventory.ItemStack;
+import org.spongepowered.api.item.inventory.transaction.SlotTransaction;
 import org.spongepowered.api.world.Location;
 import org.spongepowered.api.world.World;
 
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.Vector;
 
-import static com.sk89q.worldguard.sponge.cause.Cause.create;
+import javax.annotation.Nullable;
 
 public class EventAbstractionListener extends AbstractListener {
 
@@ -92,12 +121,12 @@ public class EventAbstractionListener extends AbstractListener {
         super.registerEvents();
     }
 
-    //-------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
     // Block break / place
-    //-------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
 
     @Listener
-    public void onBlockBreak(org.spongepowered.api.event.block.BreakBlockEvent event) {
+    public void onBlockBreak(ChangeBlockEvent.Break event) {
         Optional<Player> optPlayer = event.getCause().first(Player.class);
 
         if (!optPlayer.isPresent()) {
@@ -106,8 +135,8 @@ public class EventAbstractionListener extends AbstractListener {
 
         Player player = optPlayer.get();
 
-        for (BlockTransaction transaction : event.getTransactions()) {
-            Location<World> modLoc = transaction.getFinalReplacement().getLocation().get();
+        for (Transaction<BlockSnapshot> transaction : event.getTransactions()) {
+            Location<World> modLoc = transaction.getFinal().getLocation().get();
             Events.fireToCancel(event, new BreakBlockEvent(event, create(player), modLoc));
 
             if (event.isCancelled()) {
@@ -117,7 +146,7 @@ public class EventAbstractionListener extends AbstractListener {
     }
 
     @Listener
-    public void onBlockPlace(org.spongepowered.api.event.block.PlaceBlockEvent event) {
+    public void onBlockPlace(ChangeBlockEvent.Place event) {
         Optional<Player> optPlayer = event.getCause().first(Player.class);
 
         if (!optPlayer.isPresent()) {
@@ -126,11 +155,11 @@ public class EventAbstractionListener extends AbstractListener {
 
         Player player = optPlayer.get();
 
-        for (BlockTransaction transaction : event.getTransactions()) {
+        for (Transaction<BlockSnapshot> transaction : event.getTransactions()) {
             BlockSnapshot previous = transaction.getOriginal();
             BlockState previousState = previous.getState();
 
-            BlockSnapshot next = transaction.getFinalReplacement();
+            BlockSnapshot next = transaction.getFinal();
             BlockState nextState = next.getState();
 
             // Some blocks, like tall grass and fire, get replaced
@@ -155,21 +184,17 @@ public class EventAbstractionListener extends AbstractListener {
 
     @Listener
     public void onBlockBurn(NotifyNeighborBlockEvent.Burn event) {
-        Block target = event.getBlock();
+        BlockState target = event.getBlock();
 
-        Block[] adjacent = new Block[] {
-                target.getRelative(BlockFace.NORTH),
-                target.getRelative(BlockFace.SOUTH),
-                target.getRelative(BlockFace.WEST),
-                target.getRelative(BlockFace.EAST),
-                target.getRelative(BlockFace.UP),
-                target.getRelative(BlockFace.DOWN)};
+        BlockState[] adjacent =
+                new BlockState[] {target.getRelative(BlockFace.NORTH), target.getRelative(BlockFace.SOUTH), target.getRelative(BlockFace.WEST),
+                        target.getRelative(BlockFace.EAST), target.getRelative(BlockFace.UP), target.getRelative(BlockFace.DOWN)};
 
         int found = 0;
         boolean allowed = false;
 
-        for (Block source : adjacent) {
-            if (source.getType() == Material.FIRE) {
+        for (BlockState source : adjacent) {
+            if (source.getType() == BlockTypes.FIRE) {
                 found++;
                 if (Events.fireAndTestCancel(new BreakBlockEvent(event, create(source), target))) {
                     source.setType(Material.AIR);
@@ -193,7 +218,8 @@ public class EventAbstractionListener extends AbstractListener {
         if (player != null) {
             Events.fireBulkEventToCancel(event, new PlaceBlockEvent(event, create(player), event.getLocation().getWorld(), blockList, Material.AIR));
         } else {
-            Events.fireBulkEventToCancel(event, new PlaceBlockEvent(event, create(event.getLocation().getBlock()), event.getLocation().getWorld(), blockList, Material.AIR));
+            Events.fireBulkEventToCancel(event, new PlaceBlockEvent(event, create(event.getLocation().getBlock()), event.getLocation().getWorld(),
+                    blockList, Material.AIR));
         }
 
         if (!event.isCancelled() && event.getBlocks().size() != originalCount) {
@@ -220,15 +246,16 @@ public class EventAbstractionListener extends AbstractListener {
             Events.fireToCancel(event, new PlaceBlockEvent(event, create(entity), block.getLocation(), to));
         } else {
             if (event.getTo() == Material.AIR) {
-                // Track the source so later we can create a proper chain of causes
+                // Track the source so later we can create a proper chain of
+                // causes
                 if (entity instanceof FallingBlock) {
                     Cause.trackParentCause(entity, block);
 
                     // Switch around the event
                     Events.fireToCancel(event, new SpawnEntityEvent(event, create(block), entity));
                 } else {
-                    entityBreakBlockDebounce.debounce(
-                            event.getBlock(), event.getEntity(), event, new BreakBlockEvent(event, create(entity), event.getBlock()));
+                    entityBreakBlockDebounce.debounce(event.getBlock(), event.getEntity(), event,
+                            new BreakBlockEvent(event, create(entity), event.getBlock()));
                 }
             } else {
                 boolean wasCancelled = event.isCancelled();
@@ -284,7 +311,8 @@ public class EventAbstractionListener extends AbstractListener {
             Block lastBlock = event.getBlock().getRelative(event.getDirection(), event.getLength() + 1);
             blocks.add(lastBlock);
             int originalLength = blocks.size();
-            Events.fireBulkEventToCancel(event, new PlaceBlockEvent(event, create(event.getBlock()), event.getBlock().getWorld(), blocks, Material.STONE));
+            Events.fireBulkEventToCancel(event, new PlaceBlockEvent(event, create(event.getBlock()), event.getBlock().getWorld(), blocks,
+                    Material.STONE));
             if (blocks.size() != originalLength) {
                 event.setCancelled(true);
             }
@@ -296,9 +324,9 @@ public class EventAbstractionListener extends AbstractListener {
         }
     }
 
-    //-------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
     // Block external interaction
-    //-------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
 
     @Listener
     public void onBlockDamage(BlockDamageEvent event) {
@@ -312,85 +340,94 @@ public class EventAbstractionListener extends AbstractListener {
     }
 
     @Listener
-    public void onPlayerInteract(PlayerInteractEvent event) {
-        Player player = event.getPlayer();
-        @Nullable ItemStack item = player.getItemInHand();
-        Block clicked = event.getClickedBlock();
-        Block placed;
-        boolean silent = false;
-        boolean modifiesWorld;
-        Cause cause = create(player);
+    public void onPlayerInteract(InteractBlockEvent event) {
+        if (event.getCause().first(Player.class).isPresent()) {
+            Player player = event.getCause().first(Player.class).get();
+            @Nullable
+            ItemStack item = player.getItemInHand().get();
+            BlockSnapshot clicked = event.getTargetBlock();
+            BlockSnapshot placed;
+            boolean silent = false;
+            boolean modifiesWorld;
+            Cause cause = create(player);
 
-        switch (event.getAction()) {
-            case PHYSICAL:
-                // Forget about Redstone ore
-                if (Materials.isRedstoneOre(clicked.getType()) || clicked.getType() == Material.SOIL) {
-                    silent = true;
-                }
+            switch (event.getAction()) {
+                case PHYSICAL:
+                    // Forget about Redstone ore
+                    if (Materials.isRedstoneOre(clicked.getType()) || clicked.getType() == Material.SOIL) {
+                        silent = true;
+                    }
 
-                interactDebounce.debounce(clicked, event.getPlayer(), event,
-                        new UseBlockEvent(event, cause, clicked).setSilent(silent).setAllowed(hasInteractBypass(clicked)));
-                break;
+                    interactDebounce.debounce(clicked, event.getPlayer(), event, new UseBlockEvent(event, cause, clicked).setSilent(silent)
+                            .setAllowed(hasInteractBypass(clicked)));
+                    break;
 
-            case RIGHT_CLICK_BLOCK:
-                placed = clicked.getRelative(event.getBlockFace());
+                case RIGHT_CLICK_BLOCK:
+                    placed = clicked.getRelative(event.getBlockFace());
 
-                // Re-used for dispensers
-                handleBlockRightClick(event, create(event.getPlayer()), item, clicked, event.getBlockFace(), placed);
+                    // Re-used for dispensers
+                    handleBlockRightClick(event, create(event.getPlayer()), item, clicked, event.getBlockFace(), placed);
 
-            case LEFT_CLICK_BLOCK:
-                placed = clicked.getRelative(event.getBlockFace());
+                case LEFT_CLICK_BLOCK:
+                    placed = clicked.getRelative(event.getBlockFace());
 
-                // Only fire events for blocks that are modified when right clicked
-                modifiesWorld = isBlockModifiedOnClick(clicked, event.getAction() == Action.RIGHT_CLICK_BLOCK) || (item != null && isItemAppliedToBlock(item, clicked));
+                    // Only fire events for blocks that are modified when right
+                    // clicked
+                    modifiesWorld =
+                            isBlockModifiedOnClick(clicked, event.getAction() == Action.RIGHT_CLICK_BLOCK)
+                                    || (item != null && isItemAppliedToBlock(item, clicked));
 
-                if (Events.fireAndTestCancel(new UseBlockEvent(event, cause, clicked).setAllowed(!modifiesWorld))) {
-                    event.setUseInteractedBlock(Result.DENY);
-                }
-
-                // Handle connected blocks (i.e. beds, chests)
-                for (Block connected : Blocks.getConnected(clicked)) {
-                    if (Events.fireAndTestCancel(new UseBlockEvent(event, create(event.getPlayer()), connected).setAllowed(!modifiesWorld))) {
+                    if (Events.fireAndTestCancel(new UseBlockEvent(event, cause, clicked).setAllowed(!modifiesWorld))) {
                         event.setUseInteractedBlock(Result.DENY);
-                        break;
                     }
-                }
 
-                // Special handling of putting out fires
-                if (event.getAction() == Action.LEFT_CLICK_BLOCK && placed.getType() == Material.FIRE) {
-                    if (Events.fireAndTestCancel(new BreakBlockEvent(event, create(event.getPlayer()), placed))) {
-                        event.setUseInteractedBlock(Result.DENY);
-                        break;
+                    // Handle connected blocks (i.e. beds, chests)
+                    for (Block connected : Blocks.getConnected(clicked)) {
+                        if (Events.fireAndTestCancel(new UseBlockEvent(event, create(event.getPlayer()), connected).setAllowed(!modifiesWorld))) {
+                            event.setUseInteractedBlock(Result.DENY);
+                            break;
+                        }
                     }
-                }
 
-                if (event.isCancelled()) {
-                    playDenyEffect(event.getPlayer(), clicked.getLocation().add(0.5, 1, 0.5));
-                }
-
-            case LEFT_CLICK_AIR:
-            case RIGHT_CLICK_AIR:
-                if (item != null && !item.getType().isBlock() && Events.fireAndTestCancel(new UseItemEvent(event, cause, player.getWorld(), item))) {
-                    event.setUseItemInHand(Result.DENY);
-                    event.setCancelled(true); // The line above does not appear to work with spawn eggs
-                }
-
-                // Check for items that the administrator has configured to
-                // emit a "use block here" event where the player is
-                // standing, which is a hack to protect items that don't
-                // throw events
-                if (item != null && getWorldConfig(player.getWorld()).blockUseAtFeet.test(item)) {
-                    if (Events.fireAndTestCancel(new UseBlockEvent(event, cause, player.getLocation().getBlock()))) {
-                        event.setCancelled(true);
+                    // Special handling of putting out fires
+                    if (event.getAction() == Action.LEFT_CLICK_BLOCK && placed.getType() == Material.FIRE) {
+                        if (Events.fireAndTestCancel(new BreakBlockEvent(event, create(event.getPlayer()), placed))) {
+                            event.setUseInteractedBlock(Result.DENY);
+                            break;
+                        }
                     }
-                }
 
-                break;
+                    if (event.isCancelled()) {
+                        playDenyEffect(event.getPlayer(), clicked.getLocation().add(0.5, 1, 0.5));
+                    }
+
+                case LEFT_CLICK_AIR:
+                case RIGHT_CLICK_AIR:
+                    if (item != null && !item.getType().isBlock()
+                            && Events.fireAndTestCancel(new UseItemEvent(event, cause, player.getWorld(), item))) {
+                        event.setUseItemInHand(Result.DENY);
+                        event.setCancelled(true); // The line above does not
+                                                  // appear to work with spawn
+                                                  // eggs
+                    }
+
+                    // Check for items that the administrator has configured to
+                    // emit a "use block here" event where the player is
+                    // standing, which is a hack to protect items that don't
+                    // throw events
+                    if (item != null && getWorldConfig(player.getWorld()).blockUseAtFeet.test(item)) {
+                        if (Events.fireAndTestCancel(new UseBlockEvent(event, cause, player.getLocation().getBlock()))) {
+                            event.setCancelled(true);
+                        }
+                    }
+
+                    break;
+            }
         }
     }
 
     @Listener
-    public void onEntityInteract(org.bukkit.event.entity.EntityInteractEvent event) {
+    public void onEntityInteract(InteractEntityEvent event) {
         interactDebounce.debounce(event.getBlock(), event.getEntity(), event,
                 new UseBlockEvent(event, create(event.getEntity()), event.getBlock()).setAllowed(hasInteractBypass(event.getBlock())));
     }
@@ -416,11 +453,14 @@ public class EventAbstractionListener extends AbstractListener {
     }
 
     @Listener
-    public void onSignChange(SignChangeEvent event) {
-        Events.fireToCancel(event, new UseBlockEvent(event, create(event.getPlayer()), event.getBlock()));
+    public void onSignChange(ChangeSignEvent event) {
+        if (event.getCause().first(Player.class).isPresent()) {
+            Player player = (Player) event.getCause().first(Player.class).get();
+            Events.fireToCancel(event, new UseBlockEvent(event, create(player), event.getTargetTile()));
 
-        if (event.isCancelled()) {
-            playDenyEffect(event.getPlayer(), event.getBlock().getLocation().add(0.5, 0.5, 0.5));
+            if (event.isCancelled()) {
+                playDenyEffect(event.getPlayer(), event.getBlock().getLocation().add(0.5, 0.5, 0.5));
+            }
         }
     }
 
@@ -468,9 +508,9 @@ public class EventAbstractionListener extends AbstractListener {
 
     // TODO: Handle EntityPortalEnterEvent
 
-    //-------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
     // Block self-interaction
-    //-------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
 
     @Listener
     public void onBlockFromTo(BlockFromToEvent event) {
@@ -503,48 +543,26 @@ public class EventAbstractionListener extends AbstractListener {
         Cause cause = create(from);
 
         // Disable since it's probably not needed
-        /*if (from.getType() != Material.AIR) {
-            Events.fireToCancel(event, new BreakBlockEvent(event, cause, to));
-        }*/
+        /*
+         * if (from.getType() != Material.AIR) { Events.fireToCancel(event, new
+         * BreakBlockEvent(event, cause, to)); }
+         */
 
         Events.fireToCancel(event, new PlaceBlockEvent(event, cause, to.getLocation(), from.getType()));
     }
 
-    //-------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
     // Entity break / place
-    //-------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
 
     @Listener
     public void onCreatureSpawn(org.spongepowered.api.event.entity.SpawnEntityEvent event) {
-        switch (event.getSpawnReason()) {
-            case DISPENSE_EGG:
-            case EGG:
-            case SPAWNER_EGG:
-                if (getWorldConfig(event.getTargetEntity().getWorld()).strictEntitySpawn) {
-                    Events.fireToCancel(event, new SpawnEntityEvent(event, Cause.unknown(), event.getTargetEntity()));
-                }
-                break;
-            case NATURAL:
-            case JOCKEY:
-            case CHUNK_GEN:
-            case SPAWNER:
-            case LIGHTNING:
-            case BUILD_SNOWMAN:
-            case BUILD_IRONGOLEM:
-            case BUILD_WITHER:
-            case VILLAGE_DEFENSE:
-            case VILLAGE_INVASION:
-            case BREEDING:
-            case SLIME_SPLIT:
-            case REINFORCEMENTS:
-            case NETHER_PORTAL:
-            case INFECTION:
-            case CURED:
-            case OCELOT_BABY:
-            case SILVERFISH_BLOCK:
-            case MOUNT:
-            case CUSTOM:
-            case DEFAULT:
+        if (event.getCause().first(Entity.class).isPresent() && event.getCause().first(Entity.class).get().getType().equals(EntityTypes.EGG)) {
+            if (getWorldConfig(event.getTargetWorld()).strictEntitySpawn) {
+            }
+            for (Entity entity : event.getEntities()) {
+                Events.fireToCancel(event, new SpawnEntityEvent(event, Cause.unknown(), entity));
+            }
         }
     }
 
@@ -577,8 +595,10 @@ public class EventAbstractionListener extends AbstractListener {
 
     @Listener
     public void onBlockExp(BlockExpEvent event) {
-        if (event.getExpToDrop() > 0) { // Event is raised even where no XP is being dropped
-            if (Events.fireAndTestCancel(new SpawnEntityEvent(event, create(event.getBlock()), event.getBlock().getLocation(), EntityType.EXPERIENCE_ORB))) {
+        if (event.getExpToDrop() > 0) { // Event is raised even where no XP is
+                                        // being dropped
+            if (Events.fireAndTestCancel(new SpawnEntityEvent(event, create(event.getBlock()), event.getBlock().getLocation(),
+                    EntityType.EXPERIENCE_ORB))) {
                 event.setExpToDrop(0);
             }
         }
@@ -586,81 +606,91 @@ public class EventAbstractionListener extends AbstractListener {
 
     @Listener
     public void onPlayerFish(PlayerFishEvent event) {
-        if (Events.fireAndTestCancel(new SpawnEntityEvent(event, create(event.getPlayer(), event.getHook()), event.getHook().getLocation(), EntityType.EXPERIENCE_ORB))) {
+        if (Events.fireAndTestCancel(new SpawnEntityEvent(event, create(event.getPlayer(), event.getHook()), event.getHook().getLocation(),
+                EntityType.EXPERIENCE_ORB))) {
             event.setExpToDrop(0);
         }
     }
 
     @Listener
-    public void onExpBottle(ExpBottleEvent event) {
-        if (Events.fireAndTestCancel(new SpawnEntityEvent(event, create(event.getEntity()), event.getEntity().getLocation(), EntityType.EXPERIENCE_ORB))) {
-            event.setExperience(0);
-
-            // Give the player back his or her XP bottle
-            ProjectileSource shooter = event.getEntity().getShooter();
-            if (shooter instanceof Player) {
-                Player player = (Player) shooter;
-                if (player.getGameMode() != GameMode.CREATIVE) {
-                    player.getInventory().addItem(new ItemStack(Material.EXP_BOTTLE, 1));
+    public void onExpBottle(UseItemStackEvent event) {
+        if (event.getCause().first(Entity.class).isPresent()) {
+            Entity entity = event.getCause().first(Entity.class).get();
+            if (event.getItemStackInUse().getOriginal().createStack().getItem().equals(ItemTypes.EXPERIENCE_BOTTLE)) {
+                if (Events.fireAndTestCancel(new SpawnEntityEvent(event, create(entity), entity.getLocation(), EntityTypes.EXPERIENCE_ORB))) {
+                    event.getItemStackInUse().getOriginal().createStack().offer(Keys.EXPERIENCE_LEVEL, 0);
+                    // Give the player back his or her XP bottle
+                    ProjectileSource shooter = (ProjectileSource) entity;
+                    if (shooter instanceof Player) {
+                        Player player = (Player) shooter;
+                        if (player.getGameModeData().get(Keys.GAME_MODE).get() != GameModes.CREATIVE) {
+                            player.setItemInHand(WorldGuardPlugin.inst().getGame().getRegistry().createItemBuilder()
+                                    .itemType(ItemTypes.EXPERIENCE_BOTTLE).quantity(1).build());
+                        }
+                    }
                 }
             }
         }
     }
 
     @Listener
-    public void onEntityDeath(EntityDeathEvent event) {
+    public void onEntityDeath(DestructEntityEvent event) {
         if (event.getDroppedExp() > 0) {
-            if (Events.fireAndTestCancel(new SpawnEntityEvent(event, create(event.getEntity()), event.getEntity().getLocation(), EntityType.EXPERIENCE_ORB))) {
+            if (Events.fireAndTestCancel(new SpawnEntityEvent(event, create(event.getTargetEntity()), event.getEntity().getLocation(),
+                    EntityType.EXPERIENCE_ORB))) {
                 event.setDroppedExp(0);
             }
         }
     }
 
-    //-------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
     // Entity external interaction
-    //-------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
 
     @Listener
-    public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
-        Player player = event.getPlayer();
-        World world = player.getWorld();
-        ItemStack item = player.getItemInHand();
-        Entity entity = event.getRightClicked();
+    public void onPlayerInteractEntity(InteractEntityEvent event) {
+        if (event.getCause().first(Player.class).isPresent()) {
+            Player player = (Player) event.getCause().first(Player.class).get();
+            World world = player.getWorld();
+            ItemStack item = player.getItemInHand().get();
+            Entity entity = event.getTargetEntity();
 
-        Events.fireToCancel(event, new UseItemEvent(event, create(player), world, item));
-        Events.fireToCancel(event, new UseEntityEvent(event, create(player), entity));
+            Events.fireToCancel(event, new UseItemEvent(event, create(player), world, item));
+            Events.fireToCancel(event, new UseEntityEvent(event, create(player), entity));
+        }
     }
 
     @Listener
-    public void onEntityDamage(EntityDamageEvent event) {
-        if (event instanceof EntityDamageByBlockEvent) {
-            Events.fireToCancel(event, new DamageEntityEvent(event, create(((EntityDamageByBlockEvent) event).getDamager()), event.getEntity()));
-
-        } else if (event instanceof EntityDamageByEntityEvent) {
-            EntityDamageByEntityEvent entityEvent = (EntityDamageByEntityEvent) event;
-            Entity damager = entityEvent.getDamager();
-            Events.fireToCancel(event, new DamageEntityEvent(event, create(damager), event.getEntity()));
+    public void onEntityDamage(org.spongepowered.api.event.entity.DamageEntityEvent event) {
+        if (event.getCause().first(BlockSnapshot.class).isPresent()) {
+            BlockSnapshot cause = event.getCause().first(BlockSnapshot.class).get();
+            Events.fireToCancel(event, new DamageEntityEvent(event, create(cause), event.getTargetEntity()));
+        } else if (event.getCause().first(Entity.class).isPresent()) {
+            Entity damager = event.getCause().first(Entity.class).get();
+            Events.fireToCancel(event, new DamageEntityEvent(event, create(damager), event.getTargetEntity()));
 
             // Item use event with the item in hand
             // Older blacklist handler code used this, although it suffers from
             // race problems
             if (damager instanceof Player) {
-                ItemStack item = ((Player) damager).getItemInHand();
+                ItemStack item = ((Player) damager).getItemInHand().get();
 
                 if (item != null) {
-                    Events.fireToCancel(event, new UseItemEvent(event, create(damager), event.getEntity().getWorld(), item));
+                    Events.fireToCancel(event, new UseItemEvent(event, create(damager), event.getTargetEntity().getWorld(), item));
                 }
             }
         }
     }
 
     @Listener
-    public void onEntityCombust(EntityCombustEvent event) {
-        if (event instanceof EntityCombustByBlockEvent) {
-            Events.fireToCancel(event, new DamageEntityEvent(event, create(((EntityCombustByBlockEvent) event).getCombuster()), event.getEntity()));
+    public void onEntityCombust(DestructEntityEvent event) {
+        if (event.getCause().first(BlockSnapshot.class).isPresent()) {
+            BlockSnapshot block = event.getCause().first(BlockSnapshot.class).get();
+            Events.fireToCancel(event, new DamageEntityEvent(event, create(block), event.getTargetEntity()));
 
-        } else if (event instanceof EntityCombustByEntityEvent) {
-            Events.fireToCancel(event, new DamageEntityEvent(event, create(((EntityCombustByEntityEvent) event).getCombuster()), event.getEntity()));
+        } else if (event.getCause().first(Entity.class).isPresent()) {
+            Entity cause = event.getCause().first(Entity.class).get();
+            Events.fireToCancel(event, new DamageEntityEvent(event, create(cause), event.getTargetEntity()));
         }
     }
 
@@ -675,8 +705,11 @@ public class EventAbstractionListener extends AbstractListener {
     }
 
     @Listener
-    public void onEntityTame(EntityTameEvent event) {
-        Events.fireToCancel(event, new UseEntityEvent(event, create(event.getOwner()), event.getEntity()));
+    public void onEntityTame(TameEntityEvent event) {
+        if (event.getCause().first(Entity.class).isPresent()) {
+            Entity entity = event.getCause().first(Entity.class).get();
+            Events.fireToCancel(event, new UseEntityEvent(event, create(entity), event.getTargetEntity()));
+        }
     }
 
     @Listener
@@ -685,14 +718,25 @@ public class EventAbstractionListener extends AbstractListener {
     }
 
     @Listener
-    public void onPlayerPickupItem(PlayerPickupItemEvent event) {
-        Item item = event.getItem();
-        pickupDebounce.debounce(event.getPlayer(), item, event, new DestroyEntityEvent(event, create(event.getPlayer()), event.getItem()));
+    public void onPlayerPickupItem(ChangeInventoryEvent.Pickup event) {
+        if (event.getCause().first(Player.class).isPresent()) {
+            Player player = event.getCause().first(Player.class).get();
+            for (SlotTransaction transaction : event.getTransactions()) {
+                ItemStack item = transaction.getFinal().createStack();
+                // TODO: Get the actual Entity picked up fir the last param
+                pickupDebounce.debounce(player, item, event, new DestroyEntityEvent(event, create(player), item));
+            }
+        }
     }
 
     @Listener
-    public void onPlayerDropItem(PlayerDropItemEvent event) {
-        Events.fireToCancel(event, new SpawnEntityEvent(event, create(event.getPlayer()), event.getItemDrop()));
+    public void onPlayerDropItem(DropItemEvent.Dispense event) {
+        if (event.getCause().first(Player.class).isPresent()) {
+            Player player = event.getCause().first(Player.class).get();
+            for (Entity entity : event.getEntities()) {
+                Events.fireToCancel(event, new SpawnEntityEvent(event, create(player), entity));
+            }
+        }
     }
 
     @Listener
@@ -706,13 +750,17 @@ public class EventAbstractionListener extends AbstractListener {
         Events.fireToCancel(event, new UseEntityEvent(event, create(event.getAttacker()), event.getVehicle()));
     }
 
-    //-------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
     // Composite events
-    //-------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
 
     @Listener
-    public void onPlayerItemConsume(PlayerItemConsumeEvent event) {
-        Events.fireToCancel(event, new UseItemEvent(event, create(event.getPlayer()), event.getPlayer().getWorld(), event.getItem()));
+    public void onPlayerItemConsume(UseItemStackEvent event) {
+        if (event.getCause().first(Player.class).isPresent()) {
+            Player player = event.getCause().first(Player.class).get();
+            Events.fireToCancel(event, new UseItemEvent(event, create(player), player.getWorld(), event.getItemStackInUse().getOriginal()
+                    .createStack()));
+        }
     }
 
     @Listener
@@ -754,6 +802,7 @@ public class EventAbstractionListener extends AbstractListener {
 
             if (event.isCancelled() && causeHolder instanceof Hopper) {
                 Bukkit.getScheduler().scheduleSyncDelayedTask(getPlugin(), new Runnable() {
+
                     @Override
                     public void run() {
                         ((Hopper) causeHolder).getBlock().breakNaturally();
@@ -781,9 +830,7 @@ public class EventAbstractionListener extends AbstractListener {
             boolean hasDamageEffect = Materials.hasDamageEffect(potion.getEffects());
 
             for (LivingEntity affected : event.getAffectedEntities()) {
-                DelegateEvent delegate = hasDamageEffect
-                        ? new DamageEntityEvent(event, cause, affected) :
-                        new UseEntityEvent(event, cause, affected);
+                DelegateEvent delegate = hasDamageEffect ? new DamageEntityEvent(event, cause, affected) : new UseEntityEvent(event, cause, affected);
 
                 // Consider the potion splash flag
                 delegate.getRelevantFlags().add(DefaultFlag.POTION_SPLASH);
@@ -829,9 +876,11 @@ public class EventAbstractionListener extends AbstractListener {
      * @param placed the placed block
      * @param <T> the event type
      */
-    private static <T extends Event & Cancellable> void handleBlockRightClick(T event, Cause cause, @Nullable ItemStack item, Block clicked, BlockFace faceClicked, Block placed) {
+    private static <T extends Event & Cancellable> void handleBlockRightClick(T event, Cause cause, @Nullable ItemStack item, Block clicked,
+            BlockFace faceClicked, Block placed) {
         if (item != null && item.getType() == Material.TNT) {
-            // Workaround for a bug that allowed TNT to trigger instantly if placed
+            // Workaround for a bug that allowed TNT to trigger instantly if
+            // placed
             // next to redstone, without plugins getting the clicked place event
             // (not sure if this actually still happens)
             Events.fireToCancel(event, new UseBlockEvent(event, cause, clicked.getLocation(), Material.TNT));
@@ -852,9 +901,11 @@ public class EventAbstractionListener extends AbstractListener {
         if (item != null && item.getType() == Material.MONSTER_EGG) {
             MaterialData data = item.getData();
             if (data instanceof SpawnEgg) {
-                @Nullable EntityType type = ((SpawnEgg) data).getSpawnedType();
+                @Nullable
+                EntityType type = ((SpawnEgg) data).getSpawnedType();
                 if (type == null) {
-                    type = EntityType.SHEEP; // Haven't investigated why it's sometimes null
+                    type = EntityType.SHEEP; // Haven't investigated why it's
+                                             // sometimes null
                 }
                 Events.fireToCancel(event, new SpawnEntityEvent(event, cause, placed.getLocation().add(0.5, 0, 0.5), type));
             }
@@ -885,8 +936,10 @@ public class EventAbstractionListener extends AbstractListener {
         } else if (holder instanceof BlockState) {
             Events.fireToCancel(originalEvent, new UseBlockEvent(originalEvent, cause, ((BlockState) holder).getBlock()));
         } else if (holder instanceof DoubleChest) {
-            Events.fireToCancel(originalEvent, new UseBlockEvent(originalEvent, cause, ((BlockState) ((DoubleChest) holder).getLeftSide()).getBlock()));
-            Events.fireToCancel(originalEvent, new UseBlockEvent(originalEvent, cause, ((BlockState) ((DoubleChest) holder).getRightSide()).getBlock()));
+            Events.fireToCancel(originalEvent,
+                    new UseBlockEvent(originalEvent, cause, ((BlockState) ((DoubleChest) holder).getLeftSide()).getBlock()));
+            Events.fireToCancel(originalEvent,
+                    new UseBlockEvent(originalEvent, cause, ((BlockState) ((DoubleChest) holder).getRightSide()).getBlock()));
         }
     }
 
@@ -903,15 +956,14 @@ public class EventAbstractionListener extends AbstractListener {
     }
 
     private boolean isItemAppliedToBlock(ItemStack item, Block clicked) {
-        return Materials.isItemAppliedToBlock(item.getType(), clicked.getType())
-                && !hasInteractBypass(clicked)
+        return Materials.isItemAppliedToBlock(item.getType(), clicked.getType()) && !hasInteractBypass(clicked)
                 && !hasInteractBypass(clicked.getWorld(), item);
     }
 
     private void playDenyEffect(Viewer viewer, Location location) {
-        ParticleEffect effect = getPlugin().getGame().getRegistry().createParticleEffectBuilder(
-                ParticleTypes.SMOKE_NORMAL
-        ).motion(new Vector3d(0, 1, 0)).count(1).build();
+        ParticleEffect effect =
+                getPlugin().getGame().getRegistry().createParticleEffectBuilder(ParticleTypes.SMOKE_NORMAL).motion(new Vector3d(0, 1, 0)).count(1)
+                        .build();
 
         viewer.spawnParticles(effect, location.getPosition());
     }

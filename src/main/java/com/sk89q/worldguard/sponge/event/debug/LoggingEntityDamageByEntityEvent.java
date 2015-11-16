@@ -19,32 +19,30 @@
 
 package com.sk89q.worldguard.sponge.event.debug;
 
-import java.util.Optional;
 import com.sk89q.worldguard.sponge.WorldGuardPlugin;
 import org.spongepowered.api.Game;
-import org.spongepowered.api.data.key.Keys;
-import org.spongepowered.api.data.manipulator.mutable.entity.HealthData;
+import org.spongepowered.api.entity.Entity;
 import org.spongepowered.api.entity.living.Living;
-import org.spongepowered.api.event.AbstractEvent;
 import org.spongepowered.api.event.cause.Cause;
-import org.spongepowered.api.event.entity.living.LivingChangeHealthEvent;
+import org.spongepowered.api.event.cause.entity.damage.DamageModifier;
+import org.spongepowered.api.event.entity.DamageEntityEvent;
+import org.spongepowered.api.event.impl.AbstractEvent;
+import org.spongepowered.api.util.Tuple;
 
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 
-public class LoggingEntityDamageByEntityEvent extends AbstractEvent implements LivingChangeHealthEvent, CancelLogging {
+public class LoggingEntityDamageByEntityEvent extends AbstractEvent implements DamageEntityEvent, CancelLogging {
 
     private final CancelLogger logger = new CancelLogger();
 
     public LoggingEntityDamageByEntityEvent(Living damagee, Cause cause, double damage) {
         this.damagee = damagee;
         this.cause = cause;
-        this.oldData = damagee.getHealthData();
-        this.newData = damagee.getHealthData().set(Keys.HEALTH, getOldData().get(Keys.HEALTH).get() - damage);
         this.game = WorldGuardPlugin.inst().getGame();
     }
 
-    private HealthData oldData;
-    private HealthData newData;
     private Cause cause;
     private Living damagee;
     private boolean cancelled;
@@ -66,32 +64,90 @@ public class LoggingEntityDamageByEntityEvent extends AbstractEvent implements L
     }
 
     @Override
-    public HealthData getOldData() {
-        return oldData.copy();
-    }
-
-    @Override
-    public HealthData getNewData() {
-        return newData.copy();
-    }
-
-    @Override
-    public void setNewData(HealthData newData) {
-        this.newData = newData;
-    }
-
-    @Override
-    public Optional<Cause> getCause() {
-        return Optional.fromNullable(cause);
-    }
-
-    @Override
-    public Living getEntity() {
-        return damagee;
+    public Cause getCause() {
+        return cause;
     }
 
     @Override
     public Game getGame() {
         return game;
+    }
+
+    @Override
+    public Entity getTargetEntity() {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public double getBaseDamage() {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+    @Override
+    public double getDamage(DamageModifier arg0) {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+    @Override
+    public double getFinalDamage() {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+    @Override
+    public List<Tuple<DamageModifier, Function<? super Double, Double>>> getModifiers() {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public double getOriginalDamage() {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+    @Override
+    public Map<DamageModifier, Double> getOriginalDamages() {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public double getOriginalFinalDamage() {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+    @Override
+    public List<Tuple<DamageModifier, Function<? super Double, Double>>> getOriginalFunctions() {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public double getOriginalModifierDamage(DamageModifier arg0) {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+    @Override
+    public boolean isModifierApplicable(DamageModifier arg0) {
+        // TODO Auto-generated method stub
+        return false;
+    }
+
+    @Override
+    public void setBaseDamage(double arg0) {
+        // TODO Auto-generated method stub
+        
+    }
+
+    @Override
+    public void setDamage(DamageModifier arg0, Function<? super Double, Double> arg1) {
+        // TODO Auto-generated method stub
+        
     }
 }

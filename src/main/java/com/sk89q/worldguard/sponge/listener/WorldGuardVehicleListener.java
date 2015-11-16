@@ -47,7 +47,7 @@ public class WorldGuardVehicleListener extends AbstractListener {
     public void onVehicleMove(DisplaceEntityEvent.Move event) {
         if (!event.getTargetEntity().get(PassengerData.class).isPresent()) return;
         Entity vehicle = event.getTargetEntity();
-        Entity passenger = vehicle.get(Keys.PASSENGER).orNull();
+        Entity passenger = vehicle.get(Keys.PASSENGER).orElse(null);
         if (!(passenger instanceof Player)) return;
 
         WorldConfiguration wcfg = getWorldConfig(vehicle.getWorld());

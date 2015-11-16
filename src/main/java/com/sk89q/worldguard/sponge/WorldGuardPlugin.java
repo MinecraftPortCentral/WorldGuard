@@ -20,7 +20,6 @@
 package com.sk89q.worldguard.sponge;
 
 import com.flowpowered.math.vector.Vector3d;
-import java.util.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Futures;
@@ -43,7 +42,6 @@ import com.sk89q.squirrelid.resolver.CacheForwardingService;
 import com.sk89q.squirrelid.resolver.CombinedProfileService;
 import com.sk89q.squirrelid.resolver.HttpRepositoryService;
 import com.sk89q.squirrelid.resolver.ProfileService;
-import com.sk89q.worldedit.sponge.SpongeWorldEdit;
 import com.sk89q.worldguard.LocalPlayer;
 import com.sk89q.worldguard.protection.flags.DefaultFlag;
 import com.sk89q.worldguard.protection.flags.Flag;
@@ -106,7 +104,6 @@ import org.spongepowered.api.world.DimensionTypes;
 import org.spongepowered.api.world.Location;
 import org.spongepowered.api.world.World;
 
-import javax.annotation.Nullable;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -117,12 +114,15 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import javax.annotation.Nullable;
 
 /**
  * The main class for WorldGuard as a Sponge plugin.
@@ -227,8 +227,8 @@ public class WorldGuardPlugin {
         log.info("Loading region data...");
         regionContainer.initialize();
 
-        game.getScheduler().createTaskBuilder().name("WorldGuardSessionManager").delay(SessionManager.RUN_DELAY)
-                .interval(SessionManager.RUN_DELAY).execute(new Runnable() {
+        game.getScheduler().createTaskBuilder().name("WorldGuardSessionManager").delayTicks(SessionManager.RUN_DELAY)
+                .intervalTicks(SessionManager.RUN_DELAY).execute(new Runnable() {
             @Override
             public void run() {
                 sessionManager.run();

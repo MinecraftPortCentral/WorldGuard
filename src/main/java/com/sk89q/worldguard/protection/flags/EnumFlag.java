@@ -19,12 +19,12 @@
 
 package com.sk89q.worldguard.protection.flags;
 
-import java.util.Optional;
 import com.sk89q.worldguard.sponge.WorldGuardPlugin;
 import org.spongepowered.api.CatalogType;
 import org.spongepowered.api.util.command.CommandSource;
 
 import java.util.Collection;
+import java.util.Optional;
 
 /**
  * Stores an enum value.
